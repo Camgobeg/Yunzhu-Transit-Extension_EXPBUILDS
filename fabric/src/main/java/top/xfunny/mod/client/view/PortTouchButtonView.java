@@ -21,7 +21,7 @@ public final class PortTouchButtonView extends ButtonView {
         super.setStoredMatrixTransformations(transformations);
         captionTransformations = transformations == null ? null : transformations.copy();
         if (captionTransformations != null) {
-            captionTransformations.add(graphicsHolder -> graphicsHolder.translate(0, 0, -0.0002F));
+            captionTransformations.add(graphicsHolder -> graphicsHolder.translate(0, 0, 0.0002F));
         }
     }
 
