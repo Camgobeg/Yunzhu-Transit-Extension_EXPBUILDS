@@ -11,6 +11,7 @@ import org.mtr.mapping.holder.*;
 import org.mtr.mapping.mapper.*;
 import org.mtr.mod.InitClient;
 import org.mtr.mod.block.IBlock;
+import org.mtr.mod.block.BlockLiftTrackFloor;
 import org.mtr.mod.client.MinecraftClientData;
 import org.mtr.mod.packet.PacketPressLiftButton;
 import top.xfunny.mod.ButtonRegistry;
@@ -20,7 +21,6 @@ import top.xfunny.mod.lift.LiftFloorRegistry;
 import top.xfunny.mod.lift.LiftLanternController;
 import top.xfunny.mod.keymapping.DefaultButtonsKeyMapping;
 import top.xfunny.mod.packet.PacketSyncLiftDestinationDispatchTerminal;
-import top.xfunny.mod.util.GetLiftDetails;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -256,38 +256,44 @@ public abstract class LiftDestinationDispatchTerminalBase extends BlockExtension
 
         public void registerFloor(BlockPos selfPos, World world, BlockPos pos, boolean isAdd) {
             this.selfPos = selfPos;
+            boolean delegatedToPairedButton = false;
             if (IBlock.getStatePropertySafe(world, getPos2(), SIDE) == EnumSide.RIGHT) {
-                final BlockEntity blockEntity = world.getBlockEntity(getPos2().offset(IBlock.getStatePropertySafe(world, getPos2(), FACING).rotateYCounterclockwise()));
-                if (blockEntity != null && blockEntity.data instanceof LiftButtonsBase.BlockEntityBase) {
-                    ((LiftButtonsBase.BlockEntityBase) blockEntity.data).registerFloor(selfPos, world, pos, isAdd);
+                final BlockEntity pairedEntity = world.getBlockEntity(
+                        getPos2().offset(IBlock.getStatePropertySafe(world, getPos2(), FACING).rotateYCounterclockwise()));
+                if (pairedEntity != null && pairedEntity.data instanceof LiftButtonsBase.BlockEntityBase) {
+                    ((LiftButtonsBase.BlockEntityBase) pairedEntity.data).registerFloor(selfPos, world, pos, isAdd);
+                    delegatedToPairedButton = true;
                 }
-            } else {
+            }
+
+            // Single-block destination terminals have no paired LiftButtons block.
+            // In that case keep the track link on this terminal instead of silently dropping it.
+            if (!delegatedToPairedButton) {
                 if (isAdd) {
-                    // 如果是添加操作，则将位置添加到跟踪列表中
                     trackPositions.add(pos);
                 } else {
-                    // 如果是非添加操作，则从跟踪列表中移除该位置
                     trackPositions.remove(pos);
                 }
             }
-            // 更新数据状态，标记数据为“脏”，表示需要保存或同步
             markDirty2();
         }
 
         @Override
         public void registerButton(World world, BlockPos blockPos, boolean isAdd) {
-
+            boolean delegatedToPairedButton = false;
             if (IBlock.getStatePropertySafe(world, getPos2(), SIDE) == EnumSide.RIGHT) {
-                final BlockEntity blockEntity = world.getBlockEntity(getPos2().offset(IBlock.getStatePropertySafe(world, getPos2(), FACING).rotateYCounterclockwise()));
-                if (blockEntity != null && blockEntity.data instanceof LiftButtonsBase.BlockEntityBase) {
-                    ((LiftButtonsBase.BlockEntityBase) blockEntity.data).registerButton(world, blockPos, isAdd);
+                final BlockEntity pairedEntity = world.getBlockEntity(
+                        getPos2().offset(IBlock.getStatePropertySafe(world, getPos2(), FACING).rotateYCounterclockwise()));
+                if (pairedEntity != null && pairedEntity.data instanceof LiftButtonsBase.BlockEntityBase) {
+                    ((LiftButtonsBase.BlockEntityBase) pairedEntity.data).registerButton(world, blockPos, isAdd);
+                    delegatedToPairedButton = true;
                 }
-            } else {
+            }
+
+            if (!delegatedToPairedButton) {
                 if (isAdd) {
-                    // 如果是添加操作，则将位置添加到跟踪列表中
                     liftButtonPositions.add(blockPos);
                 } else {
-                    // 如果是非添加操作，则从跟踪列表中移除该位置
                     liftButtonPositions.remove(blockPos);
                 }
             }
@@ -643,13 +649,12 @@ public abstract class LiftDestinationDispatchTerminalBase extends BlockExtension
             final Position[] foundPosition = new Position[1];
 
             lift.iterateFloors(liftFloor -> {
-                String floorNumber = GetLiftDetails.getLiftDetails(
-                        world,
-                        lift,
-                        Init.positionToBlockPos(liftFloor.getPosition())
-                ).right().left();
+                final BlockPos floorPos = Init.positionToBlockPos(liftFloor.getPosition());
+                final BlockEntity floorEntity = world.getBlockEntity(floorPos);
+                final String floorNumber = floorEntity != null && floorEntity.data instanceof BlockLiftTrackFloor.BlockEntity
+                        ? ((BlockLiftTrackFloor.BlockEntity) floorEntity.data).getFloorNumber()
+                        : liftFloor.getNumber();
 
-                // 比较目标楼层和当前楼层号
                 if (destination.equals(floorNumber)) {
                     foundPosition[0] = liftFloor.getPosition();
                 }
