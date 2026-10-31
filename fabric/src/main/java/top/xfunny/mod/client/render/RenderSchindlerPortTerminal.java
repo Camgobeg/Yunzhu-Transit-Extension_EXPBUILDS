@@ -68,7 +68,7 @@ public class RenderSchindlerPortTerminal extends BlockEntityRenderer<SchindlerPo
 
         final StoredMatrixTransformations transform = new StoredMatrixTransformations(0.5, 0, 0.5);
         transform.add(graphics -> {
-            graphics.rotateYDegrees(-facing.asRotation());
+            graphics.rotateYDegrees(-facing.getOpposite().asRotation());
             graphics.translate(0, 0, 7.9F / 16 - SMALL_OFFSET);
         });
 

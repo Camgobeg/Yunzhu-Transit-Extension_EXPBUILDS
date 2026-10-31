@@ -42,7 +42,8 @@ public class SchindlerPortTerminal extends LiftDestinationDispatchTerminalBase {
     @Override
     public VoxelShape getOutlineShape2(BlockState state, BlockView world, BlockPos pos, ShapeContext context) {
         // The terminal is a wall-mounted 3D housing (3.2 px deep), not a paper-thin panel.
-        return IBlock.getVoxelShapeByDirection(0, 0, 0, 16, 11, 3.2, IBlock.getStatePropertySafe(state, FACING));
+        // FACING points into the mounting wall; the housing/display project out from its opposite side.
+        return IBlock.getVoxelShapeByDirection(0, 0, 0, 16, 11, 3.2, IBlock.getStatePropertySafe(state, FACING).getOpposite());
     }
 
     @Nonnull
@@ -89,7 +90,7 @@ public class SchindlerPortTerminal extends LiftDestinationDispatchTerminalBase {
         final double hitX = TransformPositionX.transform(
                 MathHelper.fractionalPart(hit.getPos().getXMapped()),
                 MathHelper.fractionalPart(hit.getPos().getZMapped()),
-                IBlock.getStatePropertySafe(state, FACING)
+                IBlock.getStatePropertySafe(state, FACING).getOpposite()
         );
         final double hitY = MathHelper.fractionalPart(hit.getPos().getYMapped());
         final String button = data.getKeyMapping().mapping(hitX, hitY);

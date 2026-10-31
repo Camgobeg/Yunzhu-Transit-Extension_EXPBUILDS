@@ -8,6 +8,12 @@ import top.xfunny.mod.client.resource.FontList;
  * the physical hit-test, hover state and click cooldown.
  */
 public final class PortTouchButtonView extends ButtonView {
+    @Override
+    protected org.mtr.mapping.holder.Direction getButtonFacing(org.mtr.mapping.holder.BlockState blockState) {
+        return org.mtr.mod.block.IBlock.getStatePropertySafe(blockState,
+                org.mtr.mapping.mapper.DirectionHelper.FACING).getOpposite();
+    }
+
     private String caption = "";
     private String subtitle = "";
     private StoredMatrixTransformations captionTransformations;
