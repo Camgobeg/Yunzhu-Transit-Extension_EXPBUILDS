@@ -26,8 +26,14 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -416,8 +422,7 @@ public abstract class LiftDestinationDispatchTerminalBase extends BlockExtension
             final LiftDirection neededDirection = determineDirection(
                     bestCandidate.callingFloorIndex, bestCandidate.destFloorIndex);
             this.liftDirection = neededDirection;
-            final String liftNumber = YteLiftConfigStore.getLiftNumber(bestCandidate.lift.getId());
-            liftIdentifier = liftNumber.isEmpty() ? "NULL" : liftNumber;
+            liftIdentifier = resolveLiftIdentifier(candidates, bestCandidate.lift.getId());
             // 计算电梯相对于终端的位置
             this.liftRelativePosition = computeLiftRelativePosition(world, pos, confirmTrackPosition);
 
@@ -446,6 +451,63 @@ public abstract class LiftDestinationDispatchTerminalBase extends BlockExtension
             }, 2, TimeUnit.SECONDS);
 
             return liftIdentifier;
+        }
+
+        /**
+         * Resolve the passenger-facing car label.
+         *
+         * A configured YTE lift number always wins. If no alias has been configured,
+         * assign deterministic A/B/C... labels to the distinct lifts linked to this
+         * terminal, ordered by their MTR lift IDs. This keeps PORT usable out of the box
+         * instead of showing the literal "NULL".
+         */
+        private String resolveLiftIdentifier(ObjectArrayList<LiftCandidate> candidates, long selectedLiftId) {
+            final Map<Long, Lift> linkedLifts = new TreeMap<>();
+            final Map<Long, String> resolvedLabels = new HashMap<>();
+            final Set<String> reservedLabels = new HashSet<>();
+
+            for (LiftCandidate candidate : candidates) {
+                linkedLifts.put(candidate.lift.getId(), candidate.lift);
+            }
+
+            // Reserve all user-defined lift aliases before generating any automatic labels.
+            linkedLifts.forEach((liftId, lift) -> {
+                final String configured = YteLiftConfigStore.getLiftNumber(liftId);
+                if (configured != null && !configured.trim().isEmpty()) {
+                    final String normalized = configured.trim();
+                    resolvedLabels.put(liftId, normalized);
+                    reservedLabels.add(normalized.toUpperCase(Locale.ROOT));
+                }
+            });
+
+            int nextLetter = 0;
+            for (Long liftId : linkedLifts.keySet()) {
+                if (resolvedLabels.containsKey(liftId)) {
+                    continue;
+                }
+
+                String generated;
+                do {
+                    generated = toAlphabeticLiftLabel(nextLetter++);
+                } while (reservedLabels.contains(generated));
+
+                resolvedLabels.put(liftId, generated);
+                reservedLabels.add(generated.toUpperCase(Locale.ROOT));
+            }
+
+            return resolvedLabels.getOrDefault(selectedLiftId, "??");
+        }
+
+        /** 0 -> A, 25 -> Z, 26 -> AA. */
+        private String toAlphabeticLiftLabel(int index) {
+            final StringBuilder label = new StringBuilder();
+            int value = Math.max(0, index);
+            do {
+                final int remainder = value % 26;
+                label.insert(0, (char) ('A' + remainder));
+                value = value / 26 - 1;
+            } while (value >= 0);
+            return label.toString();
         }
 
         /**
