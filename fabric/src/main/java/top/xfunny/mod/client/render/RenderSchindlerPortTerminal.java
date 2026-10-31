@@ -258,7 +258,7 @@ public class RenderSchindlerPortTerminal extends BlockEntityRenderer<SchindlerPo
         button.setCaption(caption);
         button.setSubtitle(subtitle);
         button.setBasicsAttributes(world, pos, keyMapping);
-        button.setTexture(new Identifier(Init.MOD_ID, "textures/block/white.png"));
+        button.setTexture(new Identifier(Init.MOD_ID, "textures/block/port/rounded_card.png"));
         button.setWidth(width);
         button.setHeight(height);
         button.setLight(light);
