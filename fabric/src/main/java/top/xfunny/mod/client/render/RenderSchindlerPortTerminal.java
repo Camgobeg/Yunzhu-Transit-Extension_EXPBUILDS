@@ -411,7 +411,9 @@ public class RenderSchindlerPortTerminal extends BlockEntityRenderer<SchindlerPo
         button.setWidth(width);
         button.setHeight(height);
         button.setLight(light);
-        button.setDefaultColor(color);
+        // Keep the card background in the same render layer as its caption. Otherwise the
+        // later EXTERIOR pass can cover LIGHT_TRANSLUCENT text until the button is hovered.
+        button.setDefaultColor(color, true);
         button.setHoverColor(BUTTON_HOVER);
         button.setPressedColor(PRIMARY_CONTAINER);
         button.setMargin(0.012F, 0.004F, 0.012F, 0.004F);
