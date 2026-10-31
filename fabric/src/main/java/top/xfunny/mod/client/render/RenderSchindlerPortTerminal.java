@@ -22,15 +22,27 @@ import top.xfunny.mod.client.view.LayoutSize;
 
 import java.util.List;
 
+/**
+ * Schindler PORT-inspired destination-dispatch UI.
+ *
+ * All components are rendered onto the physical block face. The nested
+ * surfaces, clear typography and restrained accent colors are inspired
+ * by Material Design, while all input remains handled by YTE's ButtonView.
+ */
 public class RenderSchindlerPortTerminal extends BlockEntityRenderer<SchindlerPortTerminal.BlockEntity> implements DirectionHelper, IGui, IBlock {
-    private static final int WHITE = 0xFFFFFFFF;
-    private static final int MUTED = 0xFF9FB4C2;
-    private static final int ACCENT = 0xFF54C5D8;
-    private static final int BUTTON = 0xFF203747;
-    private static final int BUTTON_HOVER = 0xFF39758A;
-    private static final int BUTTON_SELECTED = 0xFF2C6678;
-    private static final float BUTTON_WIDTH = 0.235F;
-    private static final float BUTTON_HEIGHT = 0.105F;
+    private static final int BACKGROUND = 0xFF111B24;
+    private static final int SURFACE = 0xFF1B2A36;
+    private static final int SURFACE_VARIANT = 0xFF263C49;
+    private static final int PRIMARY_CONTAINER = 0xFF164C60;
+    private static final int PRIMARY = 0xFF77D8EA;
+    private static final int ON_SURFACE = 0xFFF3F7F9;
+    private static final int ON_SURFACE_VARIANT = 0xFFB0C4CD;
+    private static final int SUCCESS = 0xFF80DDB7;
+    private static final int WARNING = 0xFFFFD18A;
+    private static final int BUTTON_HOVER = 0xFF35677A;
+
+    private static final float FLOOR_BUTTON_WIDTH = 0.26F;
+    private static final float FLOOR_BUTTON_HEIGHT = 0.105F;
 
     public RenderSchindlerPortTerminal(Argument dispatcher) {
         super(dispatcher);
@@ -74,6 +86,7 @@ public class RenderSchindlerPortTerminal extends BlockEntityRenderer<SchindlerPo
         root.setPosition(-8F / 16, 0);
         root.setWidth(LayoutSize.MATCH_PARENT);
         root.setHeight(LayoutSize.MATCH_PARENT);
+        root.setBackgroundColor(BACKGROUND);
 
         final String screenId = blockEntity.getScreenId();
         if (screenId != null && screenId.startsWith(SchindlerPortTerminal.HOME_PREFIX)) {
@@ -91,48 +104,69 @@ public class RenderSchindlerPortTerminal extends BlockEntityRenderer<SchindlerPo
         final List<SchindlerPortTerminal.FloorOption> floors = data.getAvailableFloors(world);
         final int page = data.getPageIndex();
         final int start = page * 9;
+        final int pageCount = Math.max(1, (floors.size() + 8) / 9);
+        final int linkedCars = data.getLinkedLiftCount(world);
 
-        root.addChild(text(world, pos, "port_title", "SCHINDLER PORT", 0.90F, 0.075F, WHITE, 5.8F, TextView.HorizontalTextAlign.CENTER, 0.05F, 0.012F));
-        root.addChild(text(world, pos, "port_prompt", "SELECT YOUR DESTINATION", 0.90F, 0.060F, ACCENT, 4.0F, TextView.HorizontalTextAlign.CENTER, 0.05F, 0.005F));
+        final LinearLayout header = panel(world, pos, SURFACE);
+        header.addChild(text(world, pos, "port_brand", "SCHINDLER PORT", 0.90F, 0.065F, ON_SURFACE, 6.0F, TextView.HorizontalTextAlign.CENTER, 0.02F, 0.004F));
+        header.addChild(text(world, pos, "port_brand_subtitle", "DESTINATION DISPATCH", 0.90F, 0.040F, PRIMARY, 3.35F, TextView.HorizontalTextAlign.CENTER, 0.02F, 0.000F));
+        header.addChild(text(world, pos, "port_online", linkedCars > 0
+                ? linkedCars + (linkedCars == 1 ? " CAR CONNECTED  •  SYSTEM ONLINE" : " CARS CONNECTED  •  SYSTEM ONLINE")
+                : "NO LIFTS CONNECTED", 0.90F, 0.038F, linkedCars > 0 ? SUCCESS : WARNING,
+                2.85F, TextView.HorizontalTextAlign.CENTER, 0.02F, 0.000F));
+        root.addChild(header);
+
+        root.addChild(text(world, pos, "port_prompt", "WHERE WOULD YOU LIKE TO GO?", 0.90F, 0.048F,
+                ON_SURFACE_VARIANT, 3.8F, TextView.HorizontalTextAlign.CENTER, 0.05F, 0.006F));
 
         if (floors.isEmpty()) {
-            root.addChild(text(world, pos, "port_no_floors", "CONNECT LIFT FLOOR TRACKS", 0.88F, 0.14F, MUTED, 4.2F, TextView.HorizontalTextAlign.CENTER, 0.06F, 0.06F));
+            final LinearLayout emptyPanel = panel(world, pos, SURFACE_VARIANT);
+            emptyPanel.addChild(text(world, pos, "port_no_floors", "CONNECT LIFT FLOOR TRACKS", 0.88F, 0.075F,
+                    WARNING, 4.0F, TextView.HorizontalTextAlign.CENTER, 0.03F, 0.018F));
+            emptyPanel.addChild(text(world, pos, "port_no_floors_hint", "USE THE YTE LIFT LINKER", 0.88F, 0.045F,
+                    ON_SURFACE_VARIANT, 3.0F, TextView.HorizontalTextAlign.CENTER, 0.03F, 0.000F));
+            root.addChild(emptyPanel);
             return;
         }
 
         for (int rowIndex = 0; rowIndex < 3; rowIndex++) {
-            final LinearLayout row = row(world, pos);
+            final LinearLayout floorRow = row(world, pos);
             for (int column = 0; column < 3; column++) {
                 final int visibleIndex = rowIndex * 3 + column;
                 final int floorIndex = start + visibleIndex;
                 if (floorIndex >= floors.size()) {
                     break;
                 }
+
                 final SchindlerPortTerminal.FloorOption floor = floors.get(floorIndex);
-                row.addChild(button(world, pos, data.getKeyMapping(), light,
-                        "floor_" + visibleIndex, floor.number, BUTTON));
+                final String subtitle = floor.description == null || floor.description.trim().isEmpty()
+                        ? "LEVEL" : floor.description.trim();
+                floorRow.addChild(button(world, pos, data.getKeyMapping(), light,
+                        "floor_" + visibleIndex, floor.number, subtitle, SURFACE_VARIANT, FLOOR_BUTTON_WIDTH, FLOOR_BUTTON_HEIGHT));
             }
-            root.addChild(row);
+            root.addChild(floorRow);
         }
 
-        final int pageCount = Math.max(1, (floors.size() + 8) / 9);
-        if (pageCount > 1) {
-            final LinearLayout navigation = row(world, pos);
-            if (page > 0) {
-                navigation.addChild(button(world, pos, data.getKeyMapping(), light, "previous", "PREV", BUTTON));
-            } else {
-                navigation.addChild(text(world, pos, "port_nav_empty_left", " ", 0.235F, 0.075F, MUTED, 3.5F, TextView.HorizontalTextAlign.CENTER, 0.02F, 0.004F));
-            }
-            navigation.addChild(text(world, pos, "port_page", (page + 1) + " / " + pageCount, 0.235F, 0.075F, MUTED, 3.5F, TextView.HorizontalTextAlign.CENTER, 0.02F, 0.004F));
-            if (page + 1 < pageCount) {
-                navigation.addChild(button(world, pos, data.getKeyMapping(), light, "next", "NEXT", BUTTON));
-            } else {
-                navigation.addChild(text(world, pos, "port_nav_empty_right", " ", 0.235F, 0.075F, MUTED, 3.5F, TextView.HorizontalTextAlign.CENTER, 0.02F, 0.004F));
-            }
-            root.addChild(navigation);
+        final LinearLayout navigation = row(world, pos);
+        if (page > 0) {
+            navigation.addChild(button(world, pos, data.getKeyMapping(), light,
+                    "previous", "PREVIOUS", "PAGE", SURFACE, 0.25F, 0.075F));
         } else {
-            root.addChild(text(world, pos, "port_footer", "TOUCH A FLOOR TO CONTINUE", 0.88F, 0.075F, MUTED, 3.2F, TextView.HorizontalTextAlign.CENTER, 0.06F, 0.004F));
+            navigation.addChild(text(world, pos, "port_nav_empty_left", " ", 0.25F, 0.075F,
+                    ON_SURFACE_VARIANT, 3.0F, TextView.HorizontalTextAlign.CENTER, 0.02F, 0.002F));
         }
+        navigation.addChild(text(world, pos, "port_page", "PAGE " + (page + 1) + " OF " + pageCount, 0.30F, 0.075F,
+                ON_SURFACE_VARIANT, 3.0F, TextView.HorizontalTextAlign.CENTER, 0.01F, 0.002F));
+        if (page + 1 < pageCount) {
+            navigation.addChild(button(world, pos, data.getKeyMapping(), light,
+                    "next", "NEXT", "PAGE", PRIMARY_CONTAINER, 0.25F, 0.075F));
+        } else {
+            navigation.addChild(text(world, pos, "port_nav_empty_right", " ", 0.25F, 0.075F,
+                    ON_SURFACE_VARIANT, 3.0F, TextView.HorizontalTextAlign.CENTER, 0.02F, 0.002F));
+        }
+        root.addChild(navigation);
+        root.addChild(text(world, pos, "port_footer", "SELECT A FLOOR TO CONTINUE", 0.90F, 0.035F,
+                ON_SURFACE_VARIANT, 2.75F, TextView.HorizontalTextAlign.CENTER, 0.04F, 0.002F));
     }
 
     private void renderConfirm(LinearLayout root, World world, BlockPos pos, SchindlerPortTerminal.BlockEntity data, int light) {
@@ -145,23 +179,62 @@ public class RenderSchindlerPortTerminal extends BlockEntityRenderer<SchindlerPo
             }
         }
 
-        root.addChild(text(world, pos, "port_confirm_title", "CONFIRM DESTINATION", 0.90F, 0.075F, WHITE, 5.4F, TextView.HorizontalTextAlign.CENTER, 0.05F, 0.012F));
-        root.addChild(text(world, pos, "port_confirm_floor", selectedFloor, 0.86F, 0.18F, ACCENT, 10.0F, TextView.HorizontalTextAlign.CENTER, 0.07F, 0.035F));
+        root.addChild(text(world, pos, "port_confirm_step", "STEP 2 OF 2  •  REVIEW", 0.90F, 0.045F,
+                PRIMARY, 3.2F, TextView.HorizontalTextAlign.CENTER, 0.05F, 0.012F));
+
+        final LinearLayout destinationCard = panel(world, pos, SURFACE_VARIANT);
+        destinationCard.addChild(text(world, pos, "port_confirm_label", "YOUR DESTINATION", 0.88F, 0.050F,
+                ON_SURFACE_VARIANT, 3.25F, TextView.HorizontalTextAlign.CENTER, 0.03F, 0.012F));
+        destinationCard.addChild(text(world, pos, "port_confirm_floor", selectedFloor, 0.88F, 0.145F,
+                PRIMARY, 10.5F, TextView.HorizontalTextAlign.CENTER, 0.03F, 0.004F));
         if (!description.isEmpty()) {
-            root.addChild(text(world, pos, "port_confirm_description", description, 0.86F, 0.065F, MUTED, 4.0F, TextView.HorizontalTextAlign.CENTER, 0.07F, 0.012F));
+            destinationCard.addChild(text(world, pos, "port_confirm_description", description, 0.86F, 0.055F,
+                    ON_SURFACE, 3.4F, TextView.HorizontalTextAlign.CENTER, 0.04F, 0.000F));
         }
+        root.addChild(destinationCard);
+
+        root.addChild(text(world, pos, "port_confirm_hint", "CONFIRM TO RECEIVE YOUR CAR ASSIGNMENT", 0.90F, 0.045F,
+                ON_SURFACE_VARIANT, 2.85F, TextView.HorizontalTextAlign.CENTER, 0.04F, 0.008F));
+
         final LinearLayout actions = row(world, pos);
-        actions.addChild(button(world, pos, data.getKeyMapping(), light, "confirm", "CONFIRM", BUTTON_SELECTED));
-        actions.addChild(button(world, pos, data.getKeyMapping(), light, "back", "BACK", BUTTON));
+        actions.addChild(button(world, pos, data.getKeyMapping(), light,
+                "confirm", "CONFIRM", "CALL LIFT", PRIMARY_CONTAINER, 0.39F, 0.105F));
+        actions.addChild(button(world, pos, data.getKeyMapping(), light,
+                "back", "CHANGE", "DESTINATION", SURFACE, 0.39F, 0.105F));
         root.addChild(actions);
     }
 
     private void renderResult(LinearLayout root, World world, BlockPos pos, SchindlerPortTerminal.BlockEntity data, int light) {
-        root.addChild(text(world, pos, "port_result_title", "DESTINATION REGISTERED", 0.90F, 0.085F, WHITE, 4.8F, TextView.HorizontalTextAlign.CENTER, 0.05F, 0.015F));
-        root.addChild(text(world, pos, "port_result_assignment", data.getDisplayText(), 0.90F, 0.18F, ACCENT, 7.0F, TextView.HorizontalTextAlign.CENTER, 0.05F, 0.04F));
+        final String assignment = data.getDisplayText();
+        final boolean assigned = assignment != null && !assignment.contains("NO LIFT");
+        root.addChild(text(world, pos, "port_result_status", assigned ? "REQUEST ACCEPTED" : "NO CAR AVAILABLE",
+                0.90F, 0.065F, assigned ? SUCCESS : WARNING, 4.8F, TextView.HorizontalTextAlign.CENTER, 0.05F, 0.018F));
+
+        final LinearLayout carCard = panel(world, pos, SURFACE_VARIANT);
+        carCard.addChild(text(world, pos, "port_result_label", assigned ? "YOUR ASSIGNED CAR" : "PLEASE CHECK THE LIFT LINKS",
+                0.88F, 0.050F, ON_SURFACE_VARIANT, 3.2F, TextView.HorizontalTextAlign.CENTER, 0.03F, 0.012F));
+        carCard.addChild(text(world, pos, "port_result_assignment", assigned ? assignment.replace("CAR ", "") : "—",
+                0.90F, 0.16F, assigned ? PRIMARY : WARNING, 9.2F, TextView.HorizontalTextAlign.CENTER, 0.025F, 0.008F));
+        if (assigned) {
+            carCard.addChild(text(world, pos, "port_result_instruction", "PROCEED TO YOUR CAR", 0.88F, 0.045F,
+                    ON_SURFACE, 3.2F, TextView.HorizontalTextAlign.CENTER, 0.03F, 0.000F));
+        }
+        root.addChild(carCard);
+
         final LinearLayout actions = row(world, pos);
-        actions.addChild(button(world, pos, data.getKeyMapping(), light, "home", "DONE", BUTTON_SELECTED));
+        actions.addChild(button(world, pos, data.getKeyMapping(), light,
+                "home", "DONE", "NEW JOURNEY", PRIMARY_CONTAINER, 0.42F, 0.095F));
         root.addChild(actions);
+    }
+
+    private LinearLayout panel(World world, BlockPos pos, int color) {
+        final LinearLayout panel = new LinearLayout(true);
+        panel.setBasicsAttributes(world, pos);
+        panel.setWidth(LayoutSize.MATCH_PARENT);
+        panel.setHeight(LayoutSize.WRAP_CONTENT);
+        panel.setMargin(0.035F, 0.006F, 0.035F, 0.006F);
+        panel.setBackgroundColor(color);
+        return panel;
     }
 
     private LinearLayout row(World world, BlockPos pos) {
@@ -169,24 +242,26 @@ public class RenderSchindlerPortTerminal extends BlockEntityRenderer<SchindlerPo
         row.setBasicsAttributes(world, pos);
         row.setWidth(LayoutSize.MATCH_PARENT);
         row.setHeight(LayoutSize.WRAP_CONTENT);
-        row.setMargin(0, 0.006F, 0, 0.004F);
+        row.setMargin(0.015F, 0.003F, 0.015F, 0.003F);
         return row;
     }
 
     private PortTouchButtonView button(World world, BlockPos pos, DefaultButtonsKeyMapping keyMapping,
-                                       int light, String id, String caption, int color) {
+                                       int light, String id, String caption, String subtitle, int color,
+                                       float width, float height) {
         final PortTouchButtonView button = new PortTouchButtonView();
         button.setId(id);
         button.setCaption(caption);
+        button.setSubtitle(subtitle);
         button.setBasicsAttributes(world, pos, keyMapping);
         button.setTexture(new Identifier(Init.MOD_ID, "textures/block/white.png"));
-        button.setWidth(BUTTON_WIDTH);
-        button.setHeight(BUTTON_HEIGHT);
+        button.setWidth(width);
+        button.setHeight(height);
         button.setLight(light);
         button.setDefaultColor(color);
         button.setHoverColor(BUTTON_HOVER);
-        button.setPressedColor(BUTTON_SELECTED);
-        button.setMargin(0.02F, 0.006F, 0.02F, 0.006F);
+        button.setPressedColor(PRIMARY_CONTAINER);
+        button.setMargin(0.012F, 0.004F, 0.012F, 0.004F);
         return button;
     }
 
@@ -196,8 +271,8 @@ public class RenderSchindlerPortTerminal extends BlockEntityRenderer<SchindlerPo
         text.setId(id);
         text.setBasicsAttributes(world, pos, FontList.instance.getFont("nimbus_sans_bold"), fontSize, color);
         text.setTextureId("schindler_port_text_" + id);
-        text.setText(value == null ? "" : value);
-        text.setDisplayLength(32, 0);
+        text.setText(value == null ? " " : value);
+        text.setDisplayLength(36, 0);
         text.setAdaptMode(TextView.AdaptMode.FIT_WIDTH);
         text.setTextAlign(align);
         text.setWidth(width);
