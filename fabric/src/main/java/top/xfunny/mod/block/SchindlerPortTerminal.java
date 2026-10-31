@@ -176,7 +176,7 @@ public class SchindlerPortTerminal extends LiftDestinationDispatchTerminalBase {
         private static final String KEY_SELECTED_GROUP_FLOOR = "port_selected_group_floor";
 
         private final Map<Long, String> floorGroups = new LinkedHashMap<>();
-        private long selectedGroupFloorPosition = -1L;
+        private long selectedGroupFloorPosition = Long.MIN_VALUE;
 
         public BlockEntity(BlockPos pos, BlockState state) {
             super(BlockEntityTypes.SCHINDLER_PORT_TERMINAL.get(), pos, state);
@@ -200,7 +200,7 @@ public class SchindlerPortTerminal extends LiftDestinationDispatchTerminalBase {
                 floorGroups.put(floorPosition, normalizeGroup(groupName));
             }
             selectedGroupFloorPosition = compoundTag.contains(KEY_SELECTED_GROUP_FLOOR)
-                    ? compoundTag.getLong(KEY_SELECTED_GROUP_FLOOR) : -1L;
+                    ? compoundTag.getLong(KEY_SELECTED_GROUP_FLOOR) : Long.MIN_VALUE;
         }
 
         @Override
@@ -290,7 +290,7 @@ public class SchindlerPortTerminal extends LiftDestinationDispatchTerminalBase {
         }
 
         public void assignFloorGroup(String group, World world, BlockPos pos) {
-            if (selectedGroupFloorPosition >= 0) {
+            if (selectedGroupFloorPosition != Long.MIN_VALUE) {
                 floorGroups.put(selectedGroupFloorPosition, normalizeGroup(group));
             }
             registerScreenId(MANAGE_PREFIX + getAssignmentPage());
@@ -328,7 +328,7 @@ public class SchindlerPortTerminal extends LiftDestinationDispatchTerminalBase {
                     }
                 }
             }
-            if (selectedFloorPosition >= 0) {
+            if (selectedFloorPosition != Long.MIN_VALUE) {
                 selectedGroupFloorPosition = selectedFloorPosition;
             }
         }
