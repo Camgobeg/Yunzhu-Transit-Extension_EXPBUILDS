@@ -133,10 +133,10 @@ public class SchindlerPortTerminal extends LiftDestinationDispatchTerminalBase {
                 data.setHomePage(0, "ALL", world, pos);
             }
         } else if (screenId != null && screenId.startsWith(ASSIGN_PREFIX)) {
-            if (button.startsWith("assign_")) {
-                data.assignFloorGroup(button.substring("assign_".length()), world, pos);
-            } else if ("assign_back".equals(button)) {
+            if ("assign_back".equals(button)) {
                 data.setManagePage(data.getAssignmentPage(), world, pos);
+            } else if (button.startsWith("assign_")) {
+                data.assignFloorGroup(button.substring("assign_".length()), world, pos);
             }
         } else if (CONFIRM_SCREEN.equals(screenId)) {
             if ("confirm".equals(button)) {
@@ -199,7 +199,8 @@ public class SchindlerPortTerminal extends LiftDestinationDispatchTerminalBase {
                 final String groupName = compoundTag.getString("port_group_name_" + i);
                 floorGroups.put(floorPosition, normalizeGroup(groupName));
             }
-            selectedGroupFloorPosition = compoundTag.getLong(KEY_SELECTED_GROUP_FLOOR);
+            selectedGroupFloorPosition = compoundTag.contains(KEY_SELECTED_GROUP_FLOOR)
+                    ? compoundTag.getLong(KEY_SELECTED_GROUP_FLOOR) : -1L;
         }
 
         @Override
@@ -248,7 +249,11 @@ public class SchindlerPortTerminal extends LiftDestinationDispatchTerminalBase {
             }
             final String remainder = screenId.substring(HOME_PREFIX.length());
             final int separator = remainder.indexOf('_');
-            return separator < 0 ? "ALL" : normalizeGroup(remainder.substring(separator + 1));
+            if (separator < 0) {
+                return "ALL";
+            }
+            final String group = remainder.substring(separator + 1);
+            return "ALL".equalsIgnoreCase(group) ? "ALL" : normalizeGroup(group);
         }
 
         public String getSelectedFloor() {
