@@ -24,7 +24,7 @@ import java.util.List;
 
 /**
  * Schindler PORT-inspired destination-dispatch UI.
- * Group editing is available after unlocking the physical terminal with a brush.
+ * Floor categories can be assigned while the physical terminal is unlocked with a brush.
  */
 public class RenderSchindlerPortTerminal extends BlockEntityRenderer<SchindlerPortTerminal.BlockEntity> implements DirectionHelper, IGui, IBlock {
     private static final int BACKGROUND = 0xFF111B24;
@@ -37,7 +37,6 @@ public class RenderSchindlerPortTerminal extends BlockEntityRenderer<SchindlerPo
     private static final int SUCCESS = 0xFF80DDB7;
     private static final int WARNING = 0xFFFFD18A;
     private static final int BUTTON_HOVER = 0xFF35677A;
-
     private static final float FLOOR_BUTTON_WIDTH = 0.26F;
     private static final float FLOOR_BUTTON_HEIGHT = 0.092F;
 
@@ -114,20 +113,22 @@ public class RenderSchindlerPortTerminal extends BlockEntityRenderer<SchindlerPo
                 ON_SURFACE_VARIANT, 3.5F, TextView.HorizontalTextAlign.CENTER, 0.04F, 0.002F));
 
         final LinearLayout groups = row(world, pos);
-        addGroupChip(groups, world, pos, data.getKeyMapping(), light, "ALL", "ALL", data.getActiveGroup());
-        addGroupChip(groups, world, pos, data.getKeyMapping(), light, "group_PUBLIC", "PUB", data.getActiveGroup());
-        addGroupChip(groups, world, pos, data.getKeyMapping(), light, "group_OFFICE", "OFF", data.getActiveGroup());
-        addGroupChip(groups, world, pos, data.getKeyMapping(), light, "group_PARKING", "PARK", data.getActiveGroup());
-        addGroupChip(groups, world, pos, data.getKeyMapping(), light, "group_RESIDENTIAL", "RES", data.getActiveGroup());
-        addGroupChip(groups, world, pos, data.getKeyMapping(), light, "group_SERVICE", "SERV", data.getActiveGroup());
-        addGroupChip(groups, world, pos, data.getKeyMapping(), light, "group_OTHER", "OTHER", data.getActiveGroup());
+        final String[] labels = {"ALL", "PUBLIC", "OFFICE", "PARKING", "RESIDENTIAL", "SERVICE", "OTHER"};
+        // Horizontal LinearLayout places the first child at the right edge.
+        for (int i = labels.length - 1; i >= 0; i--) {
+            final String group = labels[i];
+            final boolean selected = group.equals(data.getActiveGroup());
+            groups.addChild(button(world, pos, data.getKeyMapping(), light,
+                    "group_" + group, compactGroupLabel(group), "",
+                    selected ? PRIMARY_CONTAINER : SURFACE, 0.112F, 0.050F));
+        }
         root.addChild(groups);
 
         if (floors.isEmpty()) {
             final LinearLayout emptyPanel = panel(world, pos, SURFACE_VARIANT);
             final int tracks = data.getTrackPositionCount();
             final int loadedLifts = data.getClientLiftCount();
-            final int linked = data.getLinkedLiftCount(world);
+            final int matchedLifts = data.getLinkedLiftCount(world);
             final String title;
             final String hint;
             if (tracks == 0) {
@@ -136,9 +137,12 @@ public class RenderSchindlerPortTerminal extends BlockEntityRenderer<SchindlerPo
             } else if (loadedLifts == 0) {
                 title = "WAITING FOR MTR LIFT DATA";
                 hint = "MAKE SURE THE LIFT IS BUILT AND LOADED";
-            } else if (linked == 0) {
+            } else if (matchedLifts == 0) {
                 title = "NO MATCHING LIFT FOUND";
                 hint = "RELINK THIS TERMINAL TO THE TRACK FLOOR BLOCKS";
+            } else if (!"ALL".equals(data.getActiveGroup())) {
+                title = "NO FLOORS IN " + data.getActiveGroup();
+                hint = "CHOOSE ALL OR ASSIGN FLOORS TO THIS GROUP";
             } else {
                 title = "NO FLOOR NUMBERS FOUND";
                 hint = "SET FLOOR NUMBERS ON THE MTR FLOOR TRACK BLOCKS";
@@ -148,7 +152,7 @@ public class RenderSchindlerPortTerminal extends BlockEntityRenderer<SchindlerPo
             emptyPanel.addChild(text(world, pos, "port_no_floors_hint", hint, 0.88F, 0.055F,
                     ON_SURFACE_VARIANT, 2.6F, TextView.HorizontalTextAlign.CENTER, 0.03F, 0.000F));
             emptyPanel.addChild(text(world, pos, "port_debug_counts",
-                    "TRACK LINKS " + tracks + "   •   MTR LIFTS " + loadedLifts + "   •   MATCHED " + linked,
+                    "TRACK LINKS " + tracks + "  •  MTR LIFTS " + loadedLifts + "  •  MATCHED " + matchedLifts,
                     0.88F, 0.032F, ON_SURFACE_VARIANT, 2.45F, TextView.HorizontalTextAlign.CENTER, 0.03F, 0.000F));
             root.addChild(emptyPanel);
             if (unlocked) {
@@ -205,6 +209,17 @@ public class RenderSchindlerPortTerminal extends BlockEntityRenderer<SchindlerPo
         }
     }
 
+    private String compactGroupLabel(String group) {
+        switch (group) {
+            case "PUBLIC": return "PUB";
+            case "OFFICE": return "OFF";
+            case "PARKING": return "PARK";
+            case "RESIDENTIAL": return "RES";
+            case "SERVICE": return "SERV";
+            default: return group;
+        }
+    }
+
     private void addBrandHeader(LinearLayout root, World world, BlockPos pos, int linkedCars, boolean unlocked) {
         final LinearLayout header = panel(world, pos, SURFACE);
         header.addChild(text(world, pos, "port_brand", "SCHINDLER PORT", 0.90F, 0.046F,
@@ -218,14 +233,6 @@ public class RenderSchindlerPortTerminal extends BlockEntityRenderer<SchindlerPo
                 0.90F, 0.025F, linkedCars > 0 ? SUCCESS : WARNING,
                 2.55F, TextView.HorizontalTextAlign.CENTER, 0.02F, 0.000F));
         root.addChild(header);
-    }
-
-    private void addGroupChip(LinearLayout parent, World world, BlockPos pos, DefaultButtonsKeyMapping keyMapping,
-                              int light, String id, String label, String activeGroup) {
-        final String groupId = "ALL".equals(id) ? "ALL" : id.substring("group_".length());
-        final boolean selected = groupId.equals(activeGroup);
-        parent.addChild(button(world, pos, keyMapping, light, "ALL".equals(id) ? "group_ALL" : id,
-                label, "", selected ? PRIMARY_CONTAINER : SURFACE, 0.112F, 0.050F));
     }
 
     private void renderManage(LinearLayout root, World world, BlockPos pos, SchindlerPortTerminal.BlockEntity data, int light) {
@@ -296,14 +303,14 @@ public class RenderSchindlerPortTerminal extends BlockEntityRenderer<SchindlerPo
         root.addChild(text(world, pos, "port_assign_current", "CURRENT GROUP  •  " + currentGroup, 0.90F, 0.035F,
                 ON_SURFACE_VARIANT, 2.8F, TextView.HorizontalTextAlign.CENTER, 0.04F, 0.000F));
 
-        final String[] ids = SchindlerPortTerminal.FLOOR_GROUPS;
+        final String[] groups = SchindlerPortTerminal.FLOOR_GROUPS;
         for (int rowIndex = 0; rowIndex < 2; rowIndex++) {
             final LinearLayout groupRow = row(world, pos);
             for (int column = 2; column >= 0; column--) {
                 final int index = rowIndex * 3 + column;
-                final String group = ids[index];
+                final String group = groups[index];
                 groupRow.addChild(button(world, pos, data.getKeyMapping(), light,
-                        "assign_" + group, group, currentGroup.equals(group) ? "SELECTED" : "SET GROUP",
+                        "assign_" + group, compactGroupLabel(group), currentGroup.equals(group) ? "SELECTED" : "SET GROUP",
                         currentGroup.equals(group) ? PRIMARY_CONTAINER : SURFACE_VARIANT, 0.26F, 0.082F));
             }
             root.addChild(groupRow);
