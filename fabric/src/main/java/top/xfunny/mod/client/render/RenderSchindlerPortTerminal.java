@@ -169,7 +169,7 @@ public class RenderSchindlerPortTerminal extends BlockEntityRenderer<SchindlerPo
                 final int visibleIndex = rowIndex * 3 + column;
                 final int floorIndex = start + visibleIndex;
                 if (floorIndex >= floors.size()) {
-                    break;
+                    continue;
                 }
                 final SchindlerPortTerminal.FloorOption floor = floors.get(floorIndex);
                 final String subtitle = floor.description == null || floor.description.trim().isEmpty()
@@ -261,7 +261,7 @@ public class RenderSchindlerPortTerminal extends BlockEntityRenderer<SchindlerPo
                 final int visibleIndex = rowIndex * 3 + column;
                 final int floorIndex = start + visibleIndex;
                 if (floorIndex >= floors.size()) {
-                    break;
+                    continue;
                 }
                 final SchindlerPortTerminal.FloorOption floor = floors.get(floorIndex);
                 floorRow.addChild(button(world, pos, data.getKeyMapping(), light,
