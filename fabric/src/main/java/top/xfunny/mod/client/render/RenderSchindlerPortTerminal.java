@@ -131,7 +131,9 @@ public class RenderSchindlerPortTerminal extends BlockEntityRenderer<SchindlerPo
 
         for (int rowIndex = 0; rowIndex < 3; rowIndex++) {
             final LinearLayout floorRow = row(world, pos);
-            for (int column = 0; column < 3; column++) {
+            // LinearLayout lays horizontal children from right to left; add the
+            // last visual column first so passengers see floor order left-to-right.
+            for (int column = 2; column >= 0; column--) {
                 final int visibleIndex = rowIndex * 3 + column;
                 final int floorIndex = start + visibleIndex;
                 if (floorIndex >= floors.size()) {
