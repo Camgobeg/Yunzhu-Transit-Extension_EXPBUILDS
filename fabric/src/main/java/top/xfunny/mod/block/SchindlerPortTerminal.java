@@ -139,6 +139,21 @@ public class SchindlerPortTerminal extends LiftDestinationDispatchTerminalBase {
             setDisplayText("SELECT A DESTINATION");
         }
 
+        @Override
+        public void readCompoundTag(CompoundTag compoundTag) {
+            super.readCompoundTag(compoundTag);
+            final String savedDisplayText = compoundTag.getString("port_display_text");
+            if (!savedDisplayText.isEmpty()) {
+                setDisplayText(savedDisplayText);
+            }
+        }
+
+        @Override
+        public void writeCompoundTag(CompoundTag compoundTag) {
+            super.writeCompoundTag(compoundTag);
+            compoundTag.putString("port_display_text", getDisplayText());
+        }
+
         public int getPageIndex() {
             final String screenId = getScreenId();
             if (screenId != null && screenId.startsWith(HOME_PREFIX)) {
