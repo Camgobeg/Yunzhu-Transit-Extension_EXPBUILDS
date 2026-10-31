@@ -24,10 +24,7 @@ import java.util.List;
 
 /**
  * Schindler PORT-inspired destination-dispatch UI.
- *
- * All components are rendered onto the physical block face. The nested
- * surfaces, clear typography and restrained accent colors are inspired
- * by Material Design, while all input remains handled by YTE's ButtonView.
+ * Group editing is available after unlocking the physical terminal with a brush.
  */
 public class RenderSchindlerPortTerminal extends BlockEntityRenderer<SchindlerPortTerminal.BlockEntity> implements DirectionHelper, IGui, IBlock {
     private static final int BACKGROUND = 0xFF111B24;
@@ -42,7 +39,7 @@ public class RenderSchindlerPortTerminal extends BlockEntityRenderer<SchindlerPo
     private static final int BUTTON_HOVER = 0xFF35677A;
 
     private static final float FLOOR_BUTTON_WIDTH = 0.26F;
-    private static final float FLOOR_BUTTON_HEIGHT = 0.105F;
+    private static final float FLOOR_BUTTON_HEIGHT = 0.092F;
 
     public RenderSchindlerPortTerminal(Argument dispatcher) {
         super(dispatcher);
@@ -65,6 +62,7 @@ public class RenderSchindlerPortTerminal extends BlockEntityRenderer<SchindlerPo
         final Direction facing = IBlock.getStatePropertySafe(blockState, FACING);
         final boolean holdingLinker = PlayerHelper.isHolding(PlayerEntity.cast(player),
                 item -> item.data instanceof YteLiftButtonsLinker || item.data instanceof YteGroupLiftButtonsLinker);
+        final boolean unlocked = IBlock.getStatePropertySafe(blockState, UNLOCKED);
 
         final DefaultButtonsKeyMapping keyMapping = blockEntity.getKeyMapping();
         keyMapping.clearButtons();
@@ -90,7 +88,11 @@ public class RenderSchindlerPortTerminal extends BlockEntityRenderer<SchindlerPo
 
         final String screenId = blockEntity.getScreenId();
         if (screenId != null && screenId.startsWith(SchindlerPortTerminal.HOME_PREFIX)) {
-            renderHome(root, world, blockPos, blockEntity, light);
+            renderHome(root, world, blockPos, blockEntity, light, unlocked);
+        } else if (screenId != null && screenId.startsWith(SchindlerPortTerminal.MANAGE_PREFIX)) {
+            renderManage(root, world, blockPos, blockEntity, light);
+        } else if (screenId != null && screenId.startsWith(SchindlerPortTerminal.ASSIGN_PREFIX)) {
+            renderAssign(root, world, blockPos, blockEntity, light);
         } else if (SchindlerPortTerminal.CONFIRM_SCREEN.equals(screenId)) {
             renderConfirm(root, world, blockPos, blockEntity, light);
         } else {
@@ -100,77 +102,215 @@ public class RenderSchindlerPortTerminal extends BlockEntityRenderer<SchindlerPo
         root.render();
     }
 
-    private void renderHome(LinearLayout root, World world, BlockPos pos, SchindlerPortTerminal.BlockEntity data, int light) {
-        final List<SchindlerPortTerminal.FloorOption> floors = data.getAvailableFloors(world);
+    private void renderHome(LinearLayout root, World world, BlockPos pos, SchindlerPortTerminal.BlockEntity data, int light, boolean unlocked) {
+        final List<SchindlerPortTerminal.FloorOption> floors = data.getVisibleFloors(world);
         final int page = data.getPageIndex();
         final int start = page * 9;
         final int pageCount = Math.max(1, (floors.size() + 8) / 9);
         final int linkedCars = data.getLinkedLiftCount(world);
 
-        final LinearLayout header = panel(world, pos, SURFACE);
-        header.addChild(text(world, pos, "port_brand", "SCHINDLER PORT", 0.90F, 0.065F, ON_SURFACE, 6.0F, TextView.HorizontalTextAlign.CENTER, 0.02F, 0.004F));
-        header.addChild(text(world, pos, "port_brand_subtitle", "DESTINATION DISPATCH", 0.90F, 0.040F, PRIMARY, 3.35F, TextView.HorizontalTextAlign.CENTER, 0.02F, 0.000F));
-        header.addChild(text(world, pos, "port_online", linkedCars > 0
-                ? linkedCars + (linkedCars == 1 ? " CAR CONNECTED  •  SYSTEM ONLINE" : " CARS CONNECTED  •  SYSTEM ONLINE")
-                : "NO LIFTS CONNECTED", 0.90F, 0.038F, linkedCars > 0 ? SUCCESS : WARNING,
-                2.85F, TextView.HorizontalTextAlign.CENTER, 0.02F, 0.000F));
-        root.addChild(header);
+        addBrandHeader(root, world, pos, linkedCars, unlocked);
+        root.addChild(text(world, pos, "port_prompt", "WHERE WOULD YOU LIKE TO GO?", 0.90F, 0.036F,
+                ON_SURFACE_VARIANT, 3.5F, TextView.HorizontalTextAlign.CENTER, 0.04F, 0.002F));
 
-        root.addChild(text(world, pos, "port_prompt", "WHERE WOULD YOU LIKE TO GO?", 0.90F, 0.048F,
-                ON_SURFACE_VARIANT, 3.8F, TextView.HorizontalTextAlign.CENTER, 0.05F, 0.006F));
+        final LinearLayout groups = row(world, pos);
+        addGroupChip(groups, world, pos, data.getKeyMapping(), light, "ALL", "ALL", data.getActiveGroup());
+        addGroupChip(groups, world, pos, data.getKeyMapping(), light, "group_PUBLIC", "PUB", data.getActiveGroup());
+        addGroupChip(groups, world, pos, data.getKeyMapping(), light, "group_OFFICE", "OFF", data.getActiveGroup());
+        addGroupChip(groups, world, pos, data.getKeyMapping(), light, "group_PARKING", "PARK", data.getActiveGroup());
+        addGroupChip(groups, world, pos, data.getKeyMapping(), light, "group_RESIDENTIAL", "RES", data.getActiveGroup());
+        addGroupChip(groups, world, pos, data.getKeyMapping(), light, "group_SERVICE", "SERV", data.getActiveGroup());
+        addGroupChip(groups, world, pos, data.getKeyMapping(), light, "group_OTHER", "OTHER", data.getActiveGroup());
+        root.addChild(groups);
 
         if (floors.isEmpty()) {
             final LinearLayout emptyPanel = panel(world, pos, SURFACE_VARIANT);
-            emptyPanel.addChild(text(world, pos, "port_no_floors", "CONNECT LIFT FLOOR TRACKS", 0.88F, 0.075F,
-                    WARNING, 4.0F, TextView.HorizontalTextAlign.CENTER, 0.03F, 0.018F));
-            emptyPanel.addChild(text(world, pos, "port_no_floors_hint", "USE THE YTE LIFT LINKER", 0.88F, 0.045F,
-                    ON_SURFACE_VARIANT, 3.0F, TextView.HorizontalTextAlign.CENTER, 0.03F, 0.000F));
+            final int tracks = data.getTrackPositionCount();
+            final int loadedLifts = data.getClientLiftCount();
+            final int linked = data.getLinkedLiftCount(world);
+            final String title;
+            final String hint;
+            if (tracks == 0) {
+                title = "NO FLOOR TRACKS LINKED";
+                hint = "USE THE YTE LIFT LINKER ON THIS TERMINAL AND FLOOR TRACKS";
+            } else if (loadedLifts == 0) {
+                title = "WAITING FOR MTR LIFT DATA";
+                hint = "MAKE SURE THE LIFT IS BUILT AND LOADED";
+            } else if (linked == 0) {
+                title = "NO MATCHING LIFT FOUND";
+                hint = "RELINK THIS TERMINAL TO THE TRACK FLOOR BLOCKS";
+            } else {
+                title = "NO FLOOR NUMBERS FOUND";
+                hint = "SET FLOOR NUMBERS ON THE MTR FLOOR TRACK BLOCKS";
+            }
+            emptyPanel.addChild(text(world, pos, "port_no_floors", title, 0.88F, 0.062F,
+                    WARNING, 3.8F, TextView.HorizontalTextAlign.CENTER, 0.03F, 0.012F));
+            emptyPanel.addChild(text(world, pos, "port_no_floors_hint", hint, 0.88F, 0.055F,
+                    ON_SURFACE_VARIANT, 2.6F, TextView.HorizontalTextAlign.CENTER, 0.03F, 0.000F));
+            emptyPanel.addChild(text(world, pos, "port_debug_counts",
+                    "TRACK LINKS " + tracks + "   •   MTR LIFTS " + loadedLifts + "   •   MATCHED " + linked,
+                    0.88F, 0.032F, ON_SURFACE_VARIANT, 2.45F, TextView.HorizontalTextAlign.CENTER, 0.03F, 0.000F));
             root.addChild(emptyPanel);
+            if (unlocked) {
+                root.addChild(button(world, pos, data.getKeyMapping(), light,
+                        "manage_groups", "MANAGE GROUPS", "ASSIGN FLOOR CATEGORIES", PRIMARY_CONTAINER, 0.48F, 0.065F));
+            }
             return;
         }
 
         for (int rowIndex = 0; rowIndex < 3; rowIndex++) {
             final LinearLayout floorRow = row(world, pos);
-            // LinearLayout lays horizontal children from right to left; add the
-            // last visual column first so passengers see floor order left-to-right.
+            // LinearLayout lays horizontal children from right to left; add the last visual column first.
             for (int column = 2; column >= 0; column--) {
                 final int visibleIndex = rowIndex * 3 + column;
                 final int floorIndex = start + visibleIndex;
                 if (floorIndex >= floors.size()) {
                     break;
                 }
-
                 final SchindlerPortTerminal.FloorOption floor = floors.get(floorIndex);
                 final String subtitle = floor.description == null || floor.description.trim().isEmpty()
-                        ? "LEVEL" : floor.description.trim();
+                        ? floor.group : floor.group + " • " + floor.description.trim();
                 floorRow.addChild(button(world, pos, data.getKeyMapping(), light,
-                        "floor_" + visibleIndex, floor.number, subtitle, SURFACE_VARIANT, FLOOR_BUTTON_WIDTH, FLOOR_BUTTON_HEIGHT));
+                        "floor_" + visibleIndex, floor.number, subtitle, SURFACE_VARIANT,
+                        FLOOR_BUTTON_WIDTH, FLOOR_BUTTON_HEIGHT));
             }
             root.addChild(floorRow);
         }
 
         final LinearLayout navigation = row(world, pos);
-        // Horizontal LinearLayout places the first child at the right edge.
-        // Insert NEXT first and PREVIOUS last so the visual order is conventional.
         if (page + 1 < pageCount) {
             navigation.addChild(button(world, pos, data.getKeyMapping(), light,
-                    "next", "NEXT", "PAGE", PRIMARY_CONTAINER, 0.25F, 0.075F));
+                    "next", "NEXT", "PAGE", PRIMARY_CONTAINER, 0.25F, 0.062F));
         } else {
-            navigation.addChild(text(world, pos, "port_nav_empty_right", " ", 0.25F, 0.075F,
-                    ON_SURFACE_VARIANT, 3.0F, TextView.HorizontalTextAlign.CENTER, 0.02F, 0.002F));
+            navigation.addChild(text(world, pos, "port_nav_empty_right", " ", 0.25F, 0.062F,
+                    ON_SURFACE_VARIANT, 2.8F, TextView.HorizontalTextAlign.CENTER, 0.02F, 0.002F));
         }
-        navigation.addChild(text(world, pos, "port_page", "PAGE " + (page + 1) + " OF " + pageCount, 0.30F, 0.075F,
-                ON_SURFACE_VARIANT, 3.0F, TextView.HorizontalTextAlign.CENTER, 0.01F, 0.002F));
+        navigation.addChild(text(world, pos, "port_page", "PAGE " + (page + 1) + " OF " + pageCount, 0.30F, 0.062F,
+                ON_SURFACE_VARIANT, 2.8F, TextView.HorizontalTextAlign.CENTER, 0.01F, 0.002F));
         if (page > 0) {
             navigation.addChild(button(world, pos, data.getKeyMapping(), light,
-                    "previous", "PREVIOUS", "PAGE", SURFACE, 0.25F, 0.075F));
+                    "previous", "PREVIOUS", "PAGE", SURFACE, 0.25F, 0.062F));
         } else {
-            navigation.addChild(text(world, pos, "port_nav_empty_left", " ", 0.25F, 0.075F,
-                    ON_SURFACE_VARIANT, 3.0F, TextView.HorizontalTextAlign.CENTER, 0.02F, 0.002F));
+            navigation.addChild(text(world, pos, "port_nav_empty_left", " ", 0.25F, 0.062F,
+                    ON_SURFACE_VARIANT, 2.8F, TextView.HorizontalTextAlign.CENTER, 0.02F, 0.002F));
         }
         root.addChild(navigation);
-        root.addChild(text(world, pos, "port_footer", "SELECT A FLOOR TO CONTINUE", 0.90F, 0.035F,
-                ON_SURFACE_VARIANT, 2.75F, TextView.HorizontalTextAlign.CENTER, 0.04F, 0.002F));
+
+        if (unlocked) {
+            root.addChild(button(world, pos, data.getKeyMapping(), light,
+                    "manage_groups", "MANAGE GROUPS", "ASSIGN FLOOR CATEGORIES", PRIMARY_CONTAINER, 0.48F, 0.062F));
+        } else {
+            root.addChild(text(world, pos, "port_footer", "SELECT A FLOOR TO CONTINUE", 0.90F, 0.028F,
+                    ON_SURFACE_VARIANT, 2.5F, TextView.HorizontalTextAlign.CENTER, 0.04F, 0.002F));
+        }
+    }
+
+    private void addBrandHeader(LinearLayout root, World world, BlockPos pos, int linkedCars, boolean unlocked) {
+        final LinearLayout header = panel(world, pos, SURFACE);
+        header.addChild(text(world, pos, "port_brand", "SCHINDLER PORT", 0.90F, 0.046F,
+                ON_SURFACE, 5.7F, TextView.HorizontalTextAlign.CENTER, 0.02F, 0.002F));
+        header.addChild(text(world, pos, "port_brand_subtitle", "DESTINATION DISPATCH", 0.90F, 0.028F,
+                PRIMARY, 3.0F, TextView.HorizontalTextAlign.CENTER, 0.02F, 0.000F));
+        final String status = linkedCars > 0
+                ? linkedCars + (linkedCars == 1 ? " CAR ONLINE" : " CARS ONLINE")
+                : "NO LIFTS CONNECTED";
+        header.addChild(text(world, pos, "port_online", unlocked ? "GROUP EDITING UNLOCKED  •  " + status : status,
+                0.90F, 0.025F, linkedCars > 0 ? SUCCESS : WARNING,
+                2.55F, TextView.HorizontalTextAlign.CENTER, 0.02F, 0.000F));
+        root.addChild(header);
+    }
+
+    private void addGroupChip(LinearLayout parent, World world, BlockPos pos, DefaultButtonsKeyMapping keyMapping,
+                              int light, String id, String label, String activeGroup) {
+        final String groupId = "ALL".equals(id) ? "ALL" : id.substring("group_".length());
+        final boolean selected = groupId.equals(activeGroup);
+        parent.addChild(button(world, pos, keyMapping, light, "ALL".equals(id) ? "group_ALL" : id,
+                label, "", selected ? PRIMARY_CONTAINER : SURFACE, 0.112F, 0.050F));
+    }
+
+    private void renderManage(LinearLayout root, World world, BlockPos pos, SchindlerPortTerminal.BlockEntity data, int light) {
+        final List<SchindlerPortTerminal.FloorOption> floors = data.getAvailableFloors(world);
+        final int page = data.getManagePage();
+        final int pageCount = Math.max(1, (floors.size() + 8) / 9);
+        final int start = page * 9;
+
+        addBrandHeader(root, world, pos, data.getLinkedLiftCount(world), true);
+        root.addChild(text(world, pos, "port_manage_title", "MANAGE FLOOR GROUPS", 0.90F, 0.042F,
+                PRIMARY, 3.7F, TextView.HorizontalTextAlign.CENTER, 0.04F, 0.004F));
+        root.addChild(text(world, pos, "port_manage_hint", "SELECT A FLOOR TO CHANGE ITS CATEGORY", 0.90F, 0.032F,
+                ON_SURFACE_VARIANT, 2.55F, TextView.HorizontalTextAlign.CENTER, 0.04F, 0.000F));
+
+        if (floors.isEmpty()) {
+            root.addChild(text(world, pos, "port_manage_empty", "NO FLOORS AVAILABLE TO GROUP", 0.90F, 0.09F,
+                    WARNING, 3.5F, TextView.HorizontalTextAlign.CENTER, 0.04F, 0.03F));
+            root.addChild(button(world, pos, data.getKeyMapping(), light,
+                    "manage_back", "BACK", "DESTINATIONS", SURFACE, 0.42F, 0.065F));
+            return;
+        }
+
+        for (int rowIndex = 0; rowIndex < 3; rowIndex++) {
+            final LinearLayout floorRow = row(world, pos);
+            for (int column = 2; column >= 0; column--) {
+                final int visibleIndex = rowIndex * 3 + column;
+                final int floorIndex = start + visibleIndex;
+                if (floorIndex >= floors.size()) {
+                    break;
+                }
+                final SchindlerPortTerminal.FloorOption floor = floors.get(floorIndex);
+                floorRow.addChild(button(world, pos, data.getKeyMapping(), light,
+                        "manage_floor_" + visibleIndex, floor.number, floor.group,
+                        SURFACE_VARIANT, FLOOR_BUTTON_WIDTH, FLOOR_BUTTON_HEIGHT));
+            }
+            root.addChild(floorRow);
+        }
+
+        final LinearLayout navigation = row(world, pos);
+        if (page + 1 < pageCount) {
+            navigation.addChild(button(world, pos, data.getKeyMapping(), light,
+                    "manage_next", "NEXT", "PAGE", PRIMARY_CONTAINER, 0.25F, 0.060F));
+        } else {
+            navigation.addChild(text(world, pos, "manage_empty_right", " ", 0.25F, 0.060F,
+                    ON_SURFACE_VARIANT, 2.8F, TextView.HorizontalTextAlign.CENTER, 0.02F, 0.002F));
+        }
+        navigation.addChild(text(world, pos, "manage_page", (page + 1) + " / " + pageCount, 0.30F, 0.060F,
+                ON_SURFACE_VARIANT, 2.8F, TextView.HorizontalTextAlign.CENTER, 0.01F, 0.002F));
+        if (page > 0) {
+            navigation.addChild(button(world, pos, data.getKeyMapping(), light,
+                    "manage_previous", "PREVIOUS", "PAGE", SURFACE, 0.25F, 0.060F));
+        } else {
+            navigation.addChild(text(world, pos, "manage_empty_left", " ", 0.25F, 0.060F,
+                    ON_SURFACE_VARIANT, 2.8F, TextView.HorizontalTextAlign.CENTER, 0.02F, 0.002F));
+        }
+        root.addChild(navigation);
+        root.addChild(button(world, pos, data.getKeyMapping(), light,
+                "manage_back", "BACK", "DESTINATIONS", SURFACE, 0.40F, 0.060F));
+    }
+
+    private void renderAssign(LinearLayout root, World world, BlockPos pos, SchindlerPortTerminal.BlockEntity data, int light) {
+        final String currentGroup = data.getSelectedGroup();
+        addBrandHeader(root, world, pos, data.getLinkedLiftCount(world), true);
+        root.addChild(text(world, pos, "port_assign_title", "CHOOSE FLOOR CATEGORY", 0.90F, 0.048F,
+                PRIMARY, 3.8F, TextView.HorizontalTextAlign.CENTER, 0.04F, 0.004F));
+        root.addChild(text(world, pos, "port_assign_floor", "FLOOR " + data.getDisplayText(), 0.90F, 0.10F,
+                ON_SURFACE, 7.0F, TextView.HorizontalTextAlign.CENTER, 0.04F, 0.008F));
+        root.addChild(text(world, pos, "port_assign_current", "CURRENT GROUP  •  " + currentGroup, 0.90F, 0.035F,
+                ON_SURFACE_VARIANT, 2.8F, TextView.HorizontalTextAlign.CENTER, 0.04F, 0.000F));
+
+        final String[] ids = SchindlerPortTerminal.FLOOR_GROUPS;
+        for (int rowIndex = 0; rowIndex < 2; rowIndex++) {
+            final LinearLayout groupRow = row(world, pos);
+            for (int column = 2; column >= 0; column--) {
+                final int index = rowIndex * 3 + column;
+                final String group = ids[index];
+                groupRow.addChild(button(world, pos, data.getKeyMapping(), light,
+                        "assign_" + group, group, currentGroup.equals(group) ? "SELECTED" : "SET GROUP",
+                        currentGroup.equals(group) ? PRIMARY_CONTAINER : SURFACE_VARIANT, 0.26F, 0.082F));
+            }
+            root.addChild(groupRow);
+        }
+
+        root.addChild(button(world, pos, data.getKeyMapping(), light,
+                "assign_back", "BACK", "FLOOR LIST", SURFACE, 0.40F, 0.060F));
     }
 
     private void renderConfirm(LinearLayout root, World world, BlockPos pos, SchindlerPortTerminal.BlockEntity data, int light) {
@@ -183,6 +323,7 @@ public class RenderSchindlerPortTerminal extends BlockEntityRenderer<SchindlerPo
             }
         }
 
+        addBrandHeader(root, world, pos, data.getLinkedLiftCount(world), false);
         root.addChild(text(world, pos, "port_confirm_step", "STEP 2 OF 2  •  REVIEW", 0.90F, 0.045F,
                 PRIMARY, 3.2F, TextView.HorizontalTextAlign.CENTER, 0.05F, 0.012F));
 
@@ -211,6 +352,7 @@ public class RenderSchindlerPortTerminal extends BlockEntityRenderer<SchindlerPo
     private void renderResult(LinearLayout root, World world, BlockPos pos, SchindlerPortTerminal.BlockEntity data, int light) {
         final String assignment = data.getDisplayText();
         final boolean assigned = assignment != null && !assignment.contains("NO LIFT");
+        addBrandHeader(root, world, pos, data.getLinkedLiftCount(world), false);
         root.addChild(text(world, pos, "port_result_status", assigned ? "REQUEST ACCEPTED" : "NO CAR AVAILABLE",
                 0.90F, 0.065F, assigned ? SUCCESS : WARNING, 4.8F, TextView.HorizontalTextAlign.CENTER, 0.05F, 0.018F));
 
