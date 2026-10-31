@@ -186,7 +186,7 @@ public class SchindlerPortTerminal extends LiftDestinationDispatchTerminalBase {
 
                 lift.iterateFloors(liftFloor -> {
                     final BlockPos floorPos = Init.positionToBlockPos(liftFloor.getPosition());
-                    final BlockEntity floorEntity = world.getBlockEntity(floorPos);
+                    final org.mtr.mapping.holder.BlockEntity floorEntity = world.getBlockEntity(floorPos);
                     final String floorNumber;
                     final String floorDescription;
                     if (floorEntity != null && floorEntity.data instanceof BlockLiftTrackFloor.BlockEntity) {
