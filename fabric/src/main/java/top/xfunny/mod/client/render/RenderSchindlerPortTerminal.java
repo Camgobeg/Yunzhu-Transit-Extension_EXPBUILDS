@@ -61,7 +61,7 @@ public class RenderSchindlerPortTerminal extends BlockEntityRenderer<SchindlerPo
         final Direction facing = IBlock.getStatePropertySafe(blockState, FACING);
         final boolean holdingLinker = PlayerHelper.isHolding(PlayerEntity.cast(player),
                 item -> item.data instanceof YteLiftButtonsLinker || item.data instanceof YteGroupLiftButtonsLinker);
-        final boolean unlocked = IBlock.getStatePropertySafe(blockState, UNLOCKED);
+        final boolean unlocked = IBlock.getStatePropertySafe(blockState, SchindlerPortTerminal.UNLOCKED);
 
         final DefaultButtonsKeyMapping keyMapping = blockEntity.getKeyMapping();
         keyMapping.clearButtons();
