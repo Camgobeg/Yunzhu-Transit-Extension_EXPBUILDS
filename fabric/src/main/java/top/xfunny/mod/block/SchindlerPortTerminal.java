@@ -12,7 +12,7 @@ import top.xfunny.mod.BlockEntityTypes;
 import top.xfunny.mod.Init;
 import top.xfunny.mod.Items;
 import top.xfunny.mod.block.base.LiftDestinationDispatchTerminalBase;
-import top.xfunny.mod.util.GetLiftDetails;
+import top.xfunny.mod.packet.PacketSyncLiftDestinationDispatchTerminal;
 import top.xfunny.mod.util.TransformPositionX;
 
 import javax.annotation.Nonnull;
@@ -25,8 +25,14 @@ import java.util.Set;
 
 public class SchindlerPortTerminal extends LiftDestinationDispatchTerminalBase {
     public static final String HOME_PREFIX = "schindler_port_home_";
+    public static final String MANAGE_PREFIX = "schindler_port_manage_";
+    public static final String ASSIGN_PREFIX = "schindler_port_assign_";
     public static final String CONFIRM_SCREEN = "schindler_port_confirm";
     public static final String RESULT_SCREEN = "schindler_port_result";
+
+    public static final String[] FLOOR_GROUPS = {
+            "PUBLIC", "OFFICE", "PARKING", "RESIDENTIAL", "SERVICE", "OTHER"
+    };
 
     public SchindlerPortTerminal() {
         super(true);
@@ -89,10 +95,14 @@ public class SchindlerPortTerminal extends LiftDestinationDispatchTerminalBase {
         final String screenId = data.getScreenId();
 
         if (screenId != null && screenId.startsWith(HOME_PREFIX)) {
-            if (button.startsWith("floor_")) {
+            if (button.startsWith("group_")) {
+                data.setHomePage(0, button.substring("group_".length()), world, pos);
+            } else if ("manage_groups".equals(button) && IBlock.getStatePropertySafe(state, UNLOCKED)) {
+                data.setManagePage(0, world, pos);
+            } else if (button.startsWith("floor_")) {
                 try {
                     final int visibleIndex = Integer.parseInt(button.substring("floor_".length()));
-                    final List<FloorOption> floors = data.getAvailableFloors(world);
+                    final List<FloorOption> floors = data.getVisibleFloors(world);
                     final int floorIndex = data.getPageIndex() * BlockEntity.FLOORS_PER_PAGE + visibleIndex;
                     if (floorIndex >= 0 && floorIndex < floors.size()) {
                         data.selectDestination(floors.get(floorIndex).number, world, pos);
@@ -100,9 +110,33 @@ public class SchindlerPortTerminal extends LiftDestinationDispatchTerminalBase {
                 } catch (NumberFormatException ignored) {
                 }
             } else if ("next".equals(button)) {
-                data.setHomePage(data.getPageIndex() + 1, world, pos);
+                data.setHomePage(data.getPageIndex() + 1, data.getActiveGroup(), world, pos);
             } else if ("previous".equals(button)) {
-                data.setHomePage(data.getPageIndex() - 1, world, pos);
+                data.setHomePage(data.getPageIndex() - 1, data.getActiveGroup(), world, pos);
+            }
+        } else if (screenId != null && screenId.startsWith(MANAGE_PREFIX)) {
+            if (button.startsWith("manage_floor_")) {
+                try {
+                    final int visibleIndex = Integer.parseInt(button.substring("manage_floor_".length()));
+                    final List<FloorOption> floors = data.getAvailableFloors(world);
+                    final int floorIndex = data.getManagePage() * BlockEntity.FLOORS_PER_PAGE + visibleIndex;
+                    if (floorIndex >= 0 && floorIndex < floors.size()) {
+                        data.openGroupAssignment(floors.get(floorIndex), world, pos);
+                    }
+                } catch (NumberFormatException ignored) {
+                }
+            } else if ("manage_next".equals(button)) {
+                data.setManagePage(data.getManagePage() + 1, world, pos);
+            } else if ("manage_previous".equals(button)) {
+                data.setManagePage(data.getManagePage() - 1, world, pos);
+            } else if ("manage_back".equals(button)) {
+                data.setHomePage(0, "ALL", world, pos);
+            }
+        } else if (screenId != null && screenId.startsWith(ASSIGN_PREFIX)) {
+            if (button.startsWith("assign_")) {
+                data.assignFloorGroup(button.substring("assign_".length()), world, pos);
+            } else if ("assign_back".equals(button)) {
+                data.setManagePage(data.getAssignmentPage(), world, pos);
             }
         } else if (CONFIRM_SCREEN.equals(screenId)) {
             if ("confirm".equals(button)) {
@@ -113,31 +147,40 @@ public class SchindlerPortTerminal extends LiftDestinationDispatchTerminalBase {
                     data.showResult("??".equals(assignment) ? "NO LIFT AVAILABLE" : "CAR " + assignment, world, pos);
                 }
             } else if ("back".equals(button)) {
-                data.setHomePage(0, world, pos);
+                data.setHomePage(0, "ALL", world, pos);
             }
         } else if (RESULT_SCREEN.equals(screenId) && "home".equals(button)) {
-            data.setHomePage(0, world, pos);
+            data.setHomePage(0, "ALL", world, pos);
         }
 
         return ActionResult.SUCCESS;
     }
 
     public static final class FloorOption {
+        public final long positionKey;
         public final String number;
         public final String description;
+        public final String group;
 
-        public FloorOption(String number, String description) {
+        public FloorOption(long positionKey, String number, String description, String group) {
+            this.positionKey = positionKey;
             this.number = number;
             this.description = description;
+            this.group = group;
         }
     }
 
     public static class BlockEntity extends LiftDestinationDispatchTerminalBase.BlockEntityBase {
         private static final int FLOORS_PER_PAGE = 9;
+        private static final String KEY_GROUP_COUNT = "port_floor_group_count";
+        private static final String KEY_SELECTED_GROUP_FLOOR = "port_selected_group_floor";
+
+        private final Map<Long, String> floorGroups = new LinkedHashMap<>();
+        private long selectedGroupFloorPosition = -1L;
 
         public BlockEntity(BlockPos pos, BlockState state) {
             super(BlockEntityTypes.SCHINDLER_PORT_TERMINAL.get(), pos, state);
-            registerScreenId(HOME_PREFIX + "0");
+            registerScreenId(HOME_PREFIX + "0_ALL");
             setDisplayText("SELECT A DESTINATION");
         }
 
@@ -148,23 +191,64 @@ public class SchindlerPortTerminal extends LiftDestinationDispatchTerminalBase {
             if (!savedDisplayText.isEmpty()) {
                 setDisplayText(savedDisplayText);
             }
+
+            floorGroups.clear();
+            final int groupCount = Math.max(0, Math.min(compoundTag.getInt(KEY_GROUP_COUNT), 512));
+            for (int i = 0; i < groupCount; i++) {
+                final long floorPosition = compoundTag.getLong("port_group_pos_" + i);
+                final String groupName = compoundTag.getString("port_group_name_" + i);
+                floorGroups.put(floorPosition, normalizeGroup(groupName));
+            }
+            selectedGroupFloorPosition = compoundTag.getLong(KEY_SELECTED_GROUP_FLOOR);
         }
 
         @Override
         public void writeCompoundTag(CompoundTag compoundTag) {
             super.writeCompoundTag(compoundTag);
             compoundTag.putString("port_display_text", getDisplayText());
+            compoundTag.putInt(KEY_GROUP_COUNT, floorGroups.size());
+            int index = 0;
+            for (Map.Entry<Long, String> entry : floorGroups.entrySet()) {
+                compoundTag.putLong("port_group_pos_" + index, entry.getKey());
+                compoundTag.putString("port_group_name_" + index, entry.getValue());
+                index++;
+            }
+            compoundTag.putLong(KEY_SELECTED_GROUP_FLOOR, selectedGroupFloorPosition);
         }
 
         public int getPageIndex() {
-            final String screenId = getScreenId();
-            if (screenId != null && screenId.startsWith(HOME_PREFIX)) {
-                try {
-                    return Math.max(0, Integer.parseInt(screenId.substring(HOME_PREFIX.length())));
-                } catch (NumberFormatException ignored) {
-                }
+            return readPage(getScreenId(), HOME_PREFIX);
+        }
+
+        public int getManagePage() {
+            return readPage(getScreenId(), MANAGE_PREFIX);
+        }
+
+        public int getAssignmentPage() {
+            return readPage(getScreenId(), ASSIGN_PREFIX);
+        }
+
+        private static int readPage(String screenId, String prefix) {
+            if (screenId == null || !screenId.startsWith(prefix)) {
+                return 0;
             }
-            return 0;
+            try {
+                final String remainder = screenId.substring(prefix.length());
+                final int separator = remainder.indexOf('_');
+                return Math.max(0, Integer.parseInt(separator < 0 ? remainder : remainder.substring(0, separator)));
+            } catch (NumberFormatException ignored) {
+                return 0;
+            }
+        }
+
+        public String getActiveGroup() {
+            final String screenId = getScreenId();
+            if (screenId == null || !screenId.startsWith(HOME_PREFIX)) {
+                return "ALL";
+            }
+            final String remainder = screenId.substring(HOME_PREFIX.length());
+            final int separator = remainder.indexOf('_');
+            return separator < 0 ? "ALL" : normalizeGroup(remainder.substring(separator + 1));
         }
 
         public String getSelectedFloor() {
@@ -172,23 +256,104 @@ public class SchindlerPortTerminal extends LiftDestinationDispatchTerminalBase {
         }
 
         public void setHomePage(int page, World world, BlockPos pos) {
+            setHomePage(page, getActiveGroup(), world, pos);
+        }
+
+        public void setHomePage(int page, String group, World world, BlockPos pos) {
+            final String normalizedGroup = "ALL".equalsIgnoreCase(group) ? "ALL" : normalizeGroup(group);
+            final int visibleFloorCount = getFloorsForGroup(world, normalizedGroup).size();
+            final int pageCount = Math.max(1, (visibleFloorCount + FLOORS_PER_PAGE - 1) / FLOORS_PER_PAGE);
+            final int clampedPage = Math.max(0, Math.min(page, pageCount - 1));
+            registerScreenId(HOME_PREFIX + clampedPage + "_" + normalizedGroup);
+            setDisplayText("SELECT A DESTINATION");
+            syncPortState(world, pos);
+        }
+
+        public void setManagePage(int page, World world, BlockPos pos) {
             final int pageCount = Math.max(1, (getAvailableFloors(world).size() + FLOORS_PER_PAGE - 1) / FLOORS_PER_PAGE);
             final int clampedPage = Math.max(0, Math.min(page, pageCount - 1));
-            registerScreenId(HOME_PREFIX + clampedPage);
-            setDisplayText("SELECT A DESTINATION");
-            syncDisplayState(world, pos);
+            registerScreenId(MANAGE_PREFIX + clampedPage);
+            setDisplayText("MANAGE FLOOR GROUPS");
+            syncPortState(world, pos);
+        }
+
+        public void openGroupAssignment(FloorOption floor, World world, BlockPos pos) {
+            selectedGroupFloorPosition = floor.positionKey;
+            registerScreenId(ASSIGN_PREFIX + getManagePage());
+            setDisplayText(floor.number);
+            syncPortState(world, pos);
+        }
+
+        public void assignFloorGroup(String group, World world, BlockPos pos) {
+            if (selectedGroupFloorPosition >= 0) {
+                floorGroups.put(selectedGroupFloorPosition, normalizeGroup(group));
+            }
+            registerScreenId(MANAGE_PREFIX + getAssignmentPage());
+            setDisplayText("GROUP SAVED");
+            syncPortState(world, pos);
+        }
+
+        public String getSelectedGroup() {
+            return floorGroups.getOrDefault(selectedGroupFloorPosition, "PUBLIC");
+        }
+
+        public String encodeGroupSync() {
+            final StringBuilder result = new StringBuilder();
+            floorGroups.forEach((position, group) -> {
+                if (result.length() > 0) {
+                    result.append(';');
+                }
+                result.append(position).append(':').append(group);
+            });
+            return result.toString();
+        }
+
+        public void applyGroupSync(String encodedGroups, long selectedFloorPosition) {
+            if (encodedGroups != null && !encodedGroups.isEmpty()) {
+                floorGroups.clear();
+                for (String entry : encodedGroups.split(";")) {
+                    final int separator = entry.indexOf(':');
+                    if (separator <= 0) {
+                        continue;
+                    }
+                    try {
+                        final long position = Long.parseLong(entry.substring(0, separator));
+                        floorGroups.put(position, normalizeGroup(entry.substring(separator + 1)));
+                    } catch (NumberFormatException ignored) {
+                    }
+                }
+            }
+            if (selectedFloorPosition >= 0) {
+                selectedGroupFloorPosition = selectedFloorPosition;
+            }
+        }
+
+        private void syncPortState(World world, BlockPos pos) {
+            if (world.isClient()) {
+                top.xfunny.mod.client.InitClient.REGISTRY_CLIENT.sendPacketToServer(
+                        new PacketSyncLiftDestinationDispatchTerminal(pos, getScreenId(), getDisplayText(),
+                                encodeGroupSync(), selectedGroupFloorPosition));
+            }
         }
 
         public void selectDestination(String floor, World world, BlockPos pos) {
             registerScreenId(CONFIRM_SCREEN);
             setDisplayText(floor);
-            syncDisplayState(world, pos);
+            syncPortState(world, pos);
         }
 
         public void showResult(String result, World world, BlockPos pos) {
             registerScreenId(RESULT_SCREEN);
             setDisplayText(result);
-            syncDisplayState(world, pos);
+            syncPortState(world, pos);
+        }
+
+        public int getTrackPositionCount() {
+            return getTrackPositions().size();
+        }
+
+        public int getClientLiftCount() {
+            return MinecraftClientData.getInstance().lifts.size();
         }
 
         /** Number of distinct MTR cars connected to this terminal's floor tracks. */
@@ -203,35 +368,74 @@ public class SchindlerPortTerminal extends LiftDestinationDispatchTerminalBase {
         }
 
         /**
-         * Floors are taken from lifts actually linked to this terminal, not from a hard-coded list.
+         * Reads each actual MTR LiftFloor entry. The previous helper accidentally
+         * returned lift.getCurrentFloor() for every iteration, causing floor labels
+         * to be duplicated or disappear when the current floor had no block entity.
          */
         public List<FloorOption> getAvailableFloors(World world) {
-            final Map<String, FloorOption> floors = new LinkedHashMap<>();
-            forEachTrackPosition(trackPosition -> MinecraftClientData.getInstance().lifts.forEach(lift -> {
-                if (lift.getFloorIndex(Init.blockPosToPosition(trackPosition)) < 0) {
-                    return;
-                }
+            final Map<Long, FloorOption> floors = new LinkedHashMap<>();
+            final org.mtr.libraries.it.unimi.dsi.fastutil.objects.ObjectOpenHashSet<BlockPos> linkedTracks = getTrackPositions();
+            for (final BlockPos trackPosition : linkedTracks) {
+                MinecraftClientData.getInstance().lifts.forEach(lift -> {
+                    if (lift.getFloorIndex(Init.blockPosToPosition(trackPosition)) < 0) {
+                        return;
+                    }
 
-                lift.iterateFloors(liftFloor -> {
-                    final BlockPos floorPos = Init.positionToBlockPos(liftFloor.getPosition());
-                    final org.mtr.mapping.holder.BlockEntity floorEntity = world.getBlockEntity(floorPos);
-                    final String floorNumber;
-                    final String floorDescription;
-                    if (floorEntity != null && floorEntity.data instanceof BlockLiftTrackFloor.BlockEntity) {
-                        final org.mtr.libraries.it.unimi.dsi.fastutil.objects.ObjectObjectImmutablePair<String, String> details =
-                                GetLiftDetails.getLiftDetails(world, lift, floorPos).right();
-                        floorNumber = details.left();
-                        floorDescription = details.right();
-                    } else {
-                        floorNumber = liftFloor.getNumber();
-                        floorDescription = liftFloor.getDescription();
-                    }
-                    if (floorNumber != null && !floorNumber.trim().isEmpty()) {
-                        floors.putIfAbsent(floorNumber, new FloorOption(floorNumber, floorDescription == null ? "" : floorDescription));
-                    }
+                    lift.iterateFloors(liftFloor -> {
+                        final BlockPos floorBlockPos = Init.positionToBlockPos(liftFloor.getPosition());
+                        final org.mtr.mapping.holder.BlockEntity floorEntity = world.getBlockEntity(floorBlockPos);
+                        String floorNumber = liftFloor.getNumber();
+                        String floorDescription = liftFloor.getDescription();
+
+                        if (floorEntity != null && floorEntity.data instanceof BlockLiftTrackFloor.BlockEntity) {
+                            final BlockLiftTrackFloor.BlockEntity floorData = (BlockLiftTrackFloor.BlockEntity) floorEntity.data;
+                            floorNumber = floorData.getFloorNumber();
+                            floorDescription = floorData.getFloorDescription();
+                        }
+
+                        if (floorNumber == null || floorNumber.trim().isEmpty()) {
+                            return;
+                        }
+
+                        final long floorKey = floorBlockPos.asLong();
+                        final String group = floorGroups.getOrDefault(floorKey, "PUBLIC");
+                        floors.putIfAbsent(floorKey, new FloorOption(floorKey, floorNumber.trim(),
+                                floorDescription == null ? "" : floorDescription.trim(), group));
+                    });
                 });
-            }));
+            }
             return new ArrayList<>(floors.values());
+        }
+
+        public List<FloorOption> getVisibleFloors(World world) {
+            return getFloorsForGroup(world, getActiveGroup());
+        }
+
+        private List<FloorOption> getFloorsForGroup(World world, String group) {
+            final List<FloorOption> allFloors = getAvailableFloors(world);
+            if ("ALL".equals(group)) {
+                return allFloors;
+            }
+            final List<FloorOption> filtered = new ArrayList<>();
+            for (FloorOption floor : allFloors) {
+                if (group.equals(floor.group)) {
+                    filtered.add(floor);
+                }
+            }
+            return filtered;
+        }
+
+        private static String normalizeGroup(String group) {
+            if (group == null) {
+                return "PUBLIC";
+            }
+            final String normalized = group.trim().toUpperCase(java.util.Locale.ROOT);
+            for (String knownGroup : FLOOR_GROUPS) {
+                if (knownGroup.equals(normalized)) {
+                    return knownGroup;
+                }
+            }
+            return "PUBLIC";
         }
     }
 }
