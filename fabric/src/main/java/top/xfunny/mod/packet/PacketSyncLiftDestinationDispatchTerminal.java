@@ -71,7 +71,8 @@ public final class PacketSyncLiftDestinationDispatchTerminal extends PacketHandl
             final LiftDestinationDispatchTerminalBase.BlockEntityBase terminalData =
                     (LiftDestinationDispatchTerminalBase.BlockEntityBase) blockEntity.data;
             terminalData.applyDisplayState(screenId, displayText);
-            if (terminalData instanceof SchindlerPortTerminal.BlockEntity) {
+            if (terminalData instanceof SchindlerPortTerminal.BlockEntity
+                    && (!portGroups.isEmpty() || selectedGroupFloor >= 0)) {
                 ((SchindlerPortTerminal.BlockEntity) terminalData).applyGroupSync(portGroups, selectedGroupFloor);
             }
         }
