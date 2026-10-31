@@ -13,56 +13,72 @@ import org.mtr.mapping.registry.PacketHandler;
 import org.mtr.mapping.tool.PacketBufferReceiver;
 import org.mtr.mapping.tool.PacketBufferSender;
 import top.xfunny.mod.Init;
+import top.xfunny.mod.block.SchindlerPortTerminal;
 import top.xfunny.mod.block.base.LiftDestinationDispatchTerminalBase;
 
 /**
- * 同步 LiftDestinationDispatchTerminal 的屏幕显示状态。
- * <p>
- * C2S: 交互玩家客户端 → 服务端（更新 BlockEntity，广播给所有玩家）
- * S2C: 服务端 → 所有附近玩家客户端（更新本地 BlockEntity 显示）
+ * Synchronizes the visible terminal page and optional PORT floor-group settings.
+ *
+ * C2S: interacting client -> server, where the terminal state is validated and saved.
+ * S2C: server -> other clients in the same world.
  */
 public final class PacketSyncLiftDestinationDispatchTerminal extends PacketHandler {
 
     private final BlockPos blockPos;
     private final String screenId;
     private final String displayText;
+    private final String portGroups;
+    private final long selectedGroupFloor;
 
     public PacketSyncLiftDestinationDispatchTerminal(PacketBufferReceiver packetBufferReceiver) {
         blockPos = BlockPos.fromLong(packetBufferReceiver.readLong());
         screenId = packetBufferReceiver.readString();
         displayText = packetBufferReceiver.readString();
+        portGroups = packetBufferReceiver.readString();
+        selectedGroupFloor = packetBufferReceiver.readLong();
     }
 
     public PacketSyncLiftDestinationDispatchTerminal(BlockPos blockPos, String screenId, String displayText) {
+        this(blockPos, screenId, displayText, "", -1L);
+    }
+
+    public PacketSyncLiftDestinationDispatchTerminal(BlockPos blockPos, String screenId, String displayText,
+                                                       String portGroups, long selectedGroupFloor) {
         this.blockPos = blockPos;
         this.screenId = screenId;
         this.displayText = displayText;
+        this.portGroups = portGroups == null ? "" : portGroups;
+        this.selectedGroupFloor = selectedGroupFloor;
     }
 
     @Override
     public void write(PacketBufferSender packetBufferSender) {
         packetBufferSender.writeLong(blockPos.asLong());
-        packetBufferSender.writeString(screenId);
-        packetBufferSender.writeString(displayText);
+        packetBufferSender.writeString(screenId == null ? "" : screenId);
+        packetBufferSender.writeString(displayText == null ? "" : displayText);
+        packetBufferSender.writeString(portGroups);
+        packetBufferSender.writeLong(selectedGroupFloor);
     }
 
     @Override
     public void runClient() {
-        // 客户端收到 S2C 包：更新本地 BlockEntity 的显示状态
         final ClientWorld clientWorld = MinecraftClient.getInstance().getWorldMapped();
         if (clientWorld == null) {
             return;
         }
         final BlockEntity blockEntity = clientWorld.getBlockEntity(blockPos);
         if (blockEntity != null && blockEntity.data instanceof LiftDestinationDispatchTerminalBase.BlockEntityBase) {
-            ((LiftDestinationDispatchTerminalBase.BlockEntityBase) blockEntity.data)
-                    .applyDisplayState(screenId, displayText);
+            final LiftDestinationDispatchTerminalBase.BlockEntityBase terminalData =
+                    (LiftDestinationDispatchTerminalBase.BlockEntityBase) blockEntity.data;
+            terminalData.applyDisplayState(screenId, displayText);
+            if (terminalData instanceof SchindlerPortTerminal.BlockEntity) {
+                ((SchindlerPortTerminal.BlockEntity) terminalData).applyGroupSync(portGroups, selectedGroupFloor);
+            }
         }
     }
 
     @Override
     public void runServer(MinecraftServer minecraftServer, ServerPlayerEntity serverPlayerEntity) {
-        // 服务端收到 C2S 包：更新服务端 BlockEntity，广播给所有玩家
         final World world = serverPlayerEntity.getEntityWorld();
         final ServerWorld serverWorld = serverPlayerEntity.getServerWorld();
         if (!Init.isChunkLoaded(world, blockPos)) {
@@ -74,13 +90,16 @@ public final class PacketSyncLiftDestinationDispatchTerminal extends PacketHandl
             final LiftDestinationDispatchTerminalBase.BlockEntityBase terminalData =
                     (LiftDestinationDispatchTerminalBase.BlockEntityBase) blockEntity.data;
             terminalData.applyDisplayState(screenId, displayText);
+            if (terminalData instanceof SchindlerPortTerminal.BlockEntity) {
+                ((SchindlerPortTerminal.BlockEntity) terminalData).applyGroupSync(portGroups, selectedGroupFloor);
+            }
             terminalData.markDirty2();
 
-            // 广播给该世界所有其他玩家（跳过发送者自身）
             MinecraftServerHelper.iteratePlayers(serverWorld, player -> {
                 if (!player.getUuid().equals(serverPlayerEntity.getUuid())) {
                     Init.REGISTRY.sendPacketToClient(player,
-                            new PacketSyncLiftDestinationDispatchTerminal(blockPos, screenId, displayText));
+                            new PacketSyncLiftDestinationDispatchTerminal(blockPos, screenId, displayText,
+                                    portGroups, selectedGroupFloor));
                 }
             });
         }
