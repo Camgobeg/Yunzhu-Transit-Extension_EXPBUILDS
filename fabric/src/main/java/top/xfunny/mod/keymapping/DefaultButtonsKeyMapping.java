@@ -28,6 +28,11 @@ public class DefaultButtonsKeyMapping {
         buttonMap.remove(buttonName);
     }// 暂时用不到
 
+    /** Clears per-frame hit areas before the in-world touchscreen is laid out again. */
+    public void clearButtons() {
+        buttonMap.clear();
+    }
+
     public String mapping(double x, double hitY) {
         for (Map.Entry<String, ButtonArea> entry : buttonMap.entrySet()) {
             ButtonArea area = entry.getValue();
