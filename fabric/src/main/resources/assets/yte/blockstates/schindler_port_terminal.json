@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=north": { "model": "yte:block/schindler_port_terminal" },
+    "facing=east": { "model": "yte:block/schindler_port_terminal", "y": 90 },
+    "facing=south": { "model": "yte:block/schindler_port_terminal", "y": 180 },
+    "facing=west": { "model": "yte:block/schindler_port_terminal", "y": 270 }
+  }
+}
