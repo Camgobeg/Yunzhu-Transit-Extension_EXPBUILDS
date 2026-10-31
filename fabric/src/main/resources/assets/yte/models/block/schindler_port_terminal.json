@@ -4,7 +4,7 @@
   "textures": {
     "case": "yte:block/schindler_m_series_panel",
     "frame": "yte:block/schindler_fi_gs_panel_1_touch",
-    "glass": "yte:block/port/rounded_card",
+    "glass": "yte:block/schindler_m_series_screen_1",
     "reader": "yte:block/schindler_m_series_button_round",
     "badge": "yte:block/schindler_m_series_logo_1",
     "particle": "yte:block/schindler_m_series_panel"

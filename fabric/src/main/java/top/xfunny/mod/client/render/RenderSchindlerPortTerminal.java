@@ -69,7 +69,8 @@ public class RenderSchindlerPortTerminal extends BlockEntityRenderer<SchindlerPo
         final StoredMatrixTransformations transform = new StoredMatrixTransformations(0.5, 0, 0.5);
         transform.add(graphics -> {
             graphics.rotateYDegrees(-facing.getOpposite().asRotation());
-            graphics.translate(0, 0, 7.9F / 16 - SMALL_OFFSET);
+            // Render slightly in front of the glass so the opaque block-model face cannot depth-occlude the live UI.
+            graphics.translate(0, 0, 8.15F / 16 - SMALL_OFFSET);
         });
 
         final LineComponent line = new LineComponent();
