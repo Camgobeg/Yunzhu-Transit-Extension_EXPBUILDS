@@ -7,6 +7,7 @@ import org.mtr.mapping.mapper.TextHelper;
 import org.mtr.mapping.tool.HolderBase;
 import org.mtr.mod.block.IBlock;
 import org.mtr.mod.client.MinecraftClientData;
+import org.mtr.mod.block.BlockLiftTrackFloor;
 import top.xfunny.mod.BlockEntityTypes;
 import top.xfunny.mod.Init;
 import top.xfunny.mod.Items;
@@ -185,8 +186,18 @@ public class SchindlerPortTerminal extends LiftDestinationDispatchTerminalBase {
 
                 lift.iterateFloors(liftFloor -> {
                     final BlockPos floorPos = Init.positionToBlockPos(liftFloor.getPosition());
-                    final String floorNumber = GetLiftDetails.getLiftDetails(world, lift, floorPos).right().left();
-                    final String floorDescription = GetLiftDetails.getLiftDetails(world, lift, floorPos).right().right();
+                    final BlockEntity floorEntity = world.getBlockEntity(floorPos);
+                    final String floorNumber;
+                    final String floorDescription;
+                    if (floorEntity != null && floorEntity.data instanceof BlockLiftTrackFloor.BlockEntity) {
+                        final org.mtr.libraries.it.unimi.dsi.fastutil.objects.ObjectObjectImmutablePair<String, String> details =
+                                GetLiftDetails.getLiftDetails(world, lift, floorPos).right();
+                        floorNumber = details.left();
+                        floorDescription = details.right();
+                    } else {
+                        floorNumber = liftFloor.getNumber();
+                        floorDescription = liftFloor.getDescription();
+                    }
                     if (floorNumber != null && !floorNumber.trim().isEmpty()) {
                         floors.putIfAbsent(floorNumber, new FloorOption(floorNumber, floorDescription == null ? "" : floorDescription));
                     }
