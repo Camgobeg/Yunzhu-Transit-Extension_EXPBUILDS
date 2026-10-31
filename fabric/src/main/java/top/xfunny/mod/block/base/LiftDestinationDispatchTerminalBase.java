@@ -422,7 +422,7 @@ public abstract class LiftDestinationDispatchTerminalBase extends BlockExtension
             final LiftDirection neededDirection = determineDirection(
                     bestCandidate.callingFloorIndex, bestCandidate.destFloorIndex);
             this.liftDirection = neededDirection;
-            liftIdentifier = resolveLiftIdentifier(candidates, bestCandidate.lift.getId());
+            liftIdentifier = resolveLiftIdentifier(bestCandidate.lift.getId());
             // 计算电梯相对于终端的位置
             this.liftRelativePosition = computeLiftRelativePosition(world, pos, confirmTrackPosition);
 
@@ -461,14 +461,19 @@ public abstract class LiftDestinationDispatchTerminalBase extends BlockExtension
          * terminal, ordered by their MTR lift IDs. This keeps PORT usable out of the box
          * instead of showing the literal "NULL".
          */
-        private String resolveLiftIdentifier(ObjectArrayList<LiftCandidate> candidates, long selectedLiftId) {
+        private String resolveLiftIdentifier(long selectedLiftId) {
             final Map<Long, Lift> linkedLifts = new TreeMap<>();
             final Map<Long, String> resolvedLabels = new HashMap<>();
             final Set<String> reservedLabels = new HashSet<>();
 
-            for (LiftCandidate candidate : candidates) {
-                linkedLifts.put(candidate.lift.getId(), candidate.lift);
-            }
+            // Use every car connected to this terminal, not only cars that serve
+            // the currently selected destination. Otherwise labels could change
+            // from A/B to A when a destination is served by just one car.
+            forEachTrackPosition(trackPosition -> MinecraftClientData.getInstance().lifts.forEach(lift -> {
+                if (lift.getFloorIndex(Init.blockPosToPosition(trackPosition)) >= 0) {
+                    linkedLifts.put(lift.getId(), lift);
+                }
+            }));
 
             // Reserve all user-defined lift aliases before generating any automatic labels.
             linkedLifts.forEach((liftId, lift) -> {
