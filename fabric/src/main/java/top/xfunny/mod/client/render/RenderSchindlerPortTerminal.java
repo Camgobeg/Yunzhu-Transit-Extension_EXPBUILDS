@@ -121,13 +121,13 @@ public class RenderSchindlerPortTerminal extends BlockEntityRenderer<SchindlerPo
             if (page > 0) {
                 navigation.addChild(button(world, pos, data.getKeyMapping(), light, "previous", "PREV", BUTTON));
             } else {
-                navigation.addChild(text(world, pos, "port_nav_empty_left", "", 0.235F, 0.075F, MUTED, 3.5F, TextView.HorizontalTextAlign.CENTER, 0.02F, 0.004F));
+                navigation.addChild(text(world, pos, "port_nav_empty_left", " ", 0.235F, 0.075F, MUTED, 3.5F, TextView.HorizontalTextAlign.CENTER, 0.02F, 0.004F));
             }
             navigation.addChild(text(world, pos, "port_page", (page + 1) + " / " + pageCount, 0.235F, 0.075F, MUTED, 3.5F, TextView.HorizontalTextAlign.CENTER, 0.02F, 0.004F));
             if (page + 1 < pageCount) {
                 navigation.addChild(button(world, pos, data.getKeyMapping(), light, "next", "NEXT", BUTTON));
             } else {
-                navigation.addChild(text(world, pos, "port_nav_empty_right", "", 0.235F, 0.075F, MUTED, 3.5F, TextView.HorizontalTextAlign.CENTER, 0.02F, 0.004F));
+                navigation.addChild(text(world, pos, "port_nav_empty_right", " ", 0.235F, 0.075F, MUTED, 3.5F, TextView.HorizontalTextAlign.CENTER, 0.02F, 0.004F));
             }
             root.addChild(navigation);
         } else {
