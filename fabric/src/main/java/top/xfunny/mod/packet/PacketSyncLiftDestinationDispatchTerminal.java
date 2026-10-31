@@ -71,8 +71,10 @@ public final class PacketSyncLiftDestinationDispatchTerminal extends PacketHandl
 
         final BlockEntity blockEntity = world.getBlockEntity(blockPos);
         if (blockEntity != null && blockEntity.data instanceof LiftDestinationDispatchTerminalBase.BlockEntityBase) {
-            ((LiftDestinationDispatchTerminalBase.BlockEntityBase) blockEntity.data)
-                    .applyDisplayState(screenId, displayText);
+            final LiftDestinationDispatchTerminalBase.BlockEntityBase terminalData =
+                    (LiftDestinationDispatchTerminalBase.BlockEntityBase) blockEntity.data;
+            terminalData.applyDisplayState(screenId, displayText);
+            terminalData.markDirty2();
 
             // 广播给该世界所有其他玩家（跳过发送者自身）
             MinecraftServerHelper.iteratePlayers(serverWorld, player -> {
