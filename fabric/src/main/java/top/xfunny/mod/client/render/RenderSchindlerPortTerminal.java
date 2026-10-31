@@ -150,20 +150,22 @@ public class RenderSchindlerPortTerminal extends BlockEntityRenderer<SchindlerPo
         }
 
         final LinearLayout navigation = row(world, pos);
-        if (page > 0) {
-            navigation.addChild(button(world, pos, data.getKeyMapping(), light,
-                    "previous", "PREVIOUS", "PAGE", SURFACE, 0.25F, 0.075F));
-        } else {
-            navigation.addChild(text(world, pos, "port_nav_empty_left", " ", 0.25F, 0.075F,
-                    ON_SURFACE_VARIANT, 3.0F, TextView.HorizontalTextAlign.CENTER, 0.02F, 0.002F));
-        }
-        navigation.addChild(text(world, pos, "port_page", "PAGE " + (page + 1) + " OF " + pageCount, 0.30F, 0.075F,
-                ON_SURFACE_VARIANT, 3.0F, TextView.HorizontalTextAlign.CENTER, 0.01F, 0.002F));
+        // Horizontal LinearLayout places the first child at the right edge.
+        // Insert NEXT first and PREVIOUS last so the visual order is conventional.
         if (page + 1 < pageCount) {
             navigation.addChild(button(world, pos, data.getKeyMapping(), light,
                     "next", "NEXT", "PAGE", PRIMARY_CONTAINER, 0.25F, 0.075F));
         } else {
             navigation.addChild(text(world, pos, "port_nav_empty_right", " ", 0.25F, 0.075F,
+                    ON_SURFACE_VARIANT, 3.0F, TextView.HorizontalTextAlign.CENTER, 0.02F, 0.002F));
+        }
+        navigation.addChild(text(world, pos, "port_page", "PAGE " + (page + 1) + " OF " + pageCount, 0.30F, 0.075F,
+                ON_SURFACE_VARIANT, 3.0F, TextView.HorizontalTextAlign.CENTER, 0.01F, 0.002F));
+        if (page > 0) {
+            navigation.addChild(button(world, pos, data.getKeyMapping(), light,
+                    "previous", "PREVIOUS", "PAGE", SURFACE, 0.25F, 0.075F));
+        } else {
+            navigation.addChild(text(world, pos, "port_nav_empty_left", " ", 0.25F, 0.075F,
                     ON_SURFACE_VARIANT, 3.0F, TextView.HorizontalTextAlign.CENTER, 0.02F, 0.002F));
         }
         root.addChild(navigation);
