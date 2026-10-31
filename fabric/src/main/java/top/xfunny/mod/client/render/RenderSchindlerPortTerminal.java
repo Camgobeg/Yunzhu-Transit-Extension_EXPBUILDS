@@ -79,8 +79,9 @@ public class RenderSchindlerPortTerminal extends BlockEntityRenderer<SchindlerPo
         final LinearLayout root = new LinearLayout(true);
         root.setBasicsAttributes(world, blockPos);
         root.setStoredMatrixTransformations(transform);
-        root.setParentDimensions(1, 11F / 16);
-        root.setPosition(-8F / 16, 0);
+        // The live interface is drawn on the recessed glass insert of the 3D model.
+        root.setParentDimensions(14.4F / 16, 9.6F / 16);
+        root.setPosition(-7.2F / 16, 0.65F / 16);
         root.setWidth(LayoutSize.MATCH_PARENT);
         root.setHeight(LayoutSize.MATCH_PARENT);
         root.setBackgroundColor(BACKGROUND);
@@ -385,7 +386,7 @@ public class RenderSchindlerPortTerminal extends BlockEntityRenderer<SchindlerPo
         panel.setBasicsAttributes(world, pos);
         panel.setWidth(LayoutSize.MATCH_PARENT);
         panel.setHeight(LayoutSize.WRAP_CONTENT);
-        panel.setMargin(0.035F, 0.006F, 0.035F, 0.006F);
+        panel.setMargin(0.035F * 0.78F, 0.006F * 0.78F, 0.035F * 0.78F, 0.006F * 0.78F);
         panel.setBackgroundColor(color);
         return panel;
     }
@@ -395,7 +396,7 @@ public class RenderSchindlerPortTerminal extends BlockEntityRenderer<SchindlerPo
         row.setBasicsAttributes(world, pos);
         row.setWidth(LayoutSize.MATCH_PARENT);
         row.setHeight(LayoutSize.WRAP_CONTENT);
-        row.setMargin(0.015F, 0.003F, 0.015F, 0.003F);
+        row.setMargin(0.015F * 0.78F, 0.003F * 0.78F, 0.015F * 0.78F, 0.003F * 0.78F);
         return row;
     }
 
@@ -408,15 +409,15 @@ public class RenderSchindlerPortTerminal extends BlockEntityRenderer<SchindlerPo
         button.setSubtitle(subtitle);
         button.setBasicsAttributes(world, pos, keyMapping);
         button.setTexture(new Identifier(Init.MOD_ID, "textures/block/port/rounded_card.png"));
-        button.setWidth(width);
-        button.setHeight(height);
+        button.setWidth(width * 0.90F);
+        button.setHeight(height * 0.78F);
         button.setLight(light);
         // Keep the card background in the same render layer as its caption. Otherwise the
         // later EXTERIOR pass can cover LIGHT_TRANSLUCENT text until the button is hovered.
         button.setDefaultColor(color, true);
         button.setHoverColor(BUTTON_HOVER);
         button.setPressedColor(PRIMARY_CONTAINER);
-        button.setMargin(0.012F, 0.004F, 0.012F, 0.004F);
+        button.setMargin(0.012F * 0.78F, 0.004F * 0.78F, 0.012F * 0.78F, 0.004F * 0.78F);
         return button;
     }
 
@@ -424,15 +425,15 @@ public class RenderSchindlerPortTerminal extends BlockEntityRenderer<SchindlerPo
                           int color, float fontSize, TextView.HorizontalTextAlign align, float marginLeft, float marginTop) {
         final TextView text = new TextView();
         text.setId(id);
-        text.setBasicsAttributes(world, pos, FontList.instance.getFont("nimbus_sans_bold"), fontSize, color);
+        text.setBasicsAttributes(world, pos, FontList.instance.getFont("nimbus_sans_bold"), fontSize * 0.86F, color);
         text.setTextureId("schindler_port_text_" + id);
         text.setText(value == null ? " " : value);
         text.setDisplayLength(36, 0);
         text.setAdaptMode(TextView.AdaptMode.FIT_WIDTH);
         text.setTextAlign(align);
-        text.setWidth(width);
-        text.setHeight(height);
-        text.setMargin(marginLeft, marginTop, marginLeft, 0);
+        text.setWidth(width * 0.90F);
+        text.setHeight(height * 0.78F);
+        text.setMargin(marginLeft * 0.78F, marginTop * 0.78F, marginLeft * 0.78F, 0);
         return text;
     }
 }

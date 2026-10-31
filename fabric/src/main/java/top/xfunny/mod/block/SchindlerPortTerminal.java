@@ -41,7 +41,8 @@ public class SchindlerPortTerminal extends LiftDestinationDispatchTerminalBase {
     @Nonnull
     @Override
     public VoxelShape getOutlineShape2(BlockState state, BlockView world, BlockPos pos, ShapeContext context) {
-        return IBlock.getVoxelShapeByDirection(0, 0, 0, 16, 11, 0.1, IBlock.getStatePropertySafe(state, FACING));
+        // The terminal is a wall-mounted 3D housing (3.2 px deep), not a paper-thin panel.
+        return IBlock.getVoxelShapeByDirection(0, 0, 0, 16, 11, 3.2, IBlock.getStatePropertySafe(state, FACING));
     }
 
     @Nonnull

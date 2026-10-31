@@ -42,7 +42,7 @@ public final class PortTouchButtonView extends ButtonView {
         final TextView titleView = new TextView();
         titleView.setId(getId() + "_title");
         titleView.setBasicsAttributes(world, blockPos, FontList.instance.getFont("nimbus_sans_bold"),
-                hasSubtitle ? 5.0F : 5.2F, 0xFFF5FAFC);
+                hasSubtitle ? 4.35F : 4.5F, 0xFFF5FAFC);
         titleView.setTextureId("schindler_port_title_" + getId());
         titleView.setText(caption);
         titleView.setTextAlign(TextView.HorizontalTextAlign.CENTER);
@@ -58,7 +58,7 @@ public final class PortTouchButtonView extends ButtonView {
             final TextView subtitleView = new TextView();
             subtitleView.setId(getId() + "_subtitle");
             subtitleView.setBasicsAttributes(world, blockPos, FontList.instance.getFont("nimbus_sans_bold"),
-                    2.75F, 0xFFBED0D8);
+                    2.35F, 0xFFBED0D8);
             subtitleView.setTextureId("schindler_port_subtitle_" + getId());
             subtitleView.setText(subtitle);
             subtitleView.setTextAlign(TextView.HorizontalTextAlign.CENTER);
