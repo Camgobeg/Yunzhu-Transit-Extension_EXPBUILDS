@@ -17,9 +17,11 @@ import top.xfunny.mod.util.TransformPositionX;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class SchindlerPortTerminal extends LiftDestinationDispatchTerminalBase {
     public static final String HOME_PREFIX = "schindler_port_home_";
@@ -187,6 +189,17 @@ public class SchindlerPortTerminal extends LiftDestinationDispatchTerminalBase {
             registerScreenId(RESULT_SCREEN);
             setDisplayText(result);
             syncDisplayState(world, pos);
+        }
+
+        /** Number of distinct MTR cars connected to this terminal's floor tracks. */
+        public int getLinkedLiftCount(World world) {
+            final Set<Long> linkedLiftIds = new HashSet<>();
+            forEachTrackPosition(trackPosition -> MinecraftClientData.getInstance().lifts.forEach(lift -> {
+                if (lift.getFloorIndex(Init.blockPosToPosition(trackPosition)) >= 0) {
+                    linkedLiftIds.add(lift.getId());
+                }
+            }));
+            return linkedLiftIds.size();
         }
 
         /**
