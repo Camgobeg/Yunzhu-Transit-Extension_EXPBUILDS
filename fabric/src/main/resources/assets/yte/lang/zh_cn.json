@@ -449,5 +449,6 @@
   "gui.yte.lift_tab_motion": "运行",
   "gui.yte.lift_tab_level": "平层",
   "gui.yte.lift_tab_door": "门控",
-  "block.yte.lift_track_magnetic_vane": "电梯快速区间隔磁板"
+  "block.yte.lift_track_magnetic_vane": "电梯快速区间隔磁板",
+  "block.yte.schindler_port_terminal": "施耐德 PORT 目的地选层终端"
 }

@@ -454,5 +454,6 @@
   "gui.yte.lift_tab_motion": "Motion",
   "gui.yte.lift_tab_level": "Level",
   "gui.yte.lift_tab_door": "Doors",
-  "block.yte.lift_track_magnetic_vane": "Lift Express-Zone Magnetic Vane"
+  "block.yte.lift_track_magnetic_vane": "Lift Express-Zone Magnetic Vane",
+  "block.yte.schindler_port_terminal": "Schindler PORT Destination Terminal"
 }

@@ -39,6 +39,7 @@ public class LinkerValidTypes {
             TestLiftButtons.class,
             TestLiftButtonsWithoutScreen.class,
             TestLiftDestinationDispatchTerminal.class,
+            SchindlerPortTerminal.class,
             OtisGen3Button1.class,
             OtisSeries1Button.class,
             OtisSeries1Screen.class,

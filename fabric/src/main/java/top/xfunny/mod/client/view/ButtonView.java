@@ -47,6 +47,11 @@ public class ButtonView extends ImageView {
         super.setBasicsAttributes(world, blockPos);
     }
 
+    /** Direction used by the block-face hit test; subclasses may mount their display opposite FACING. */
+    protected Direction getButtonFacing(BlockState blockState) {
+        return IBlock.getStatePropertySafe(blockState, FACING);
+    }
+
     private ButtonKey currentButtonKey = null;
 
     @Override
@@ -65,7 +70,7 @@ public class ButtonView extends ImageView {
             keyMapping.registerButton(id, location, dimension);
 
             BlockState blockState = world.getBlockState(blockPos);
-            Direction facing = IBlock.getStatePropertySafe(blockState, FACING);
+            Direction facing = getButtonFacing(blockState);
 
             final Vector3d hitLocation = hitResult.getPos();
 

@@ -56,6 +56,7 @@ public final class InitClient {
         REGISTRY_CLIENT.registerBlockEntityRenderer(BlockEntityTypes.TEST_LIFT_BUTTONS_WITHOUT_SCREEN, RenderTestLiftButtonsWithoutScreen::new);
         REGISTRY_CLIENT.registerBlockEntityRenderer(BlockEntityTypes.TEST_LIFT_PANEL, dispatcher -> new top.xfunny.mod.client.render.RenderTestLiftPanel(dispatcher, true));
         REGISTRY_CLIENT.registerBlockEntityRenderer(BlockEntityTypes.TEST_LIFT_DESTINATION_DISPATCH_TERMINAL, dispatcher -> new top.xfunny.mod.client.render.RenderTestLiftDestinationDispatchTerminal(dispatcher, true));
+        REGISTRY_CLIENT.registerBlockEntityRenderer(BlockEntityTypes.SCHINDLER_PORT_TERMINAL, RenderSchindlerPortTerminal::new);
 
         REGISTRY_CLIENT.registerBlockEntityRenderer(BlockEntityTypes.CES_SCREEN_1_ODD, dispatcher -> new top.xfunny.mod.client.render.RenderCESScreen1<>(dispatcher, true));
         REGISTRY_CLIENT.registerBlockEntityRenderer(BlockEntityTypes.CES_SCREEN_1_EVEN, dispatcher -> new top.xfunny.mod.client.render.RenderCESScreen1<>(dispatcher, false));

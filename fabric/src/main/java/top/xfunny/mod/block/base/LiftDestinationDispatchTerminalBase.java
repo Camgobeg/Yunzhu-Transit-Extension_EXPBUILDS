@@ -11,6 +11,7 @@ import org.mtr.mapping.holder.*;
 import org.mtr.mapping.mapper.*;
 import org.mtr.mod.InitClient;
 import org.mtr.mod.block.IBlock;
+import org.mtr.mod.block.BlockLiftTrackFloor;
 import org.mtr.mod.client.MinecraftClientData;
 import org.mtr.mod.packet.PacketPressLiftButton;
 import top.xfunny.mod.ButtonRegistry;
@@ -20,14 +21,19 @@ import top.xfunny.mod.lift.LiftFloorRegistry;
 import top.xfunny.mod.lift.LiftLanternController;
 import top.xfunny.mod.keymapping.DefaultButtonsKeyMapping;
 import top.xfunny.mod.packet.PacketSyncLiftDestinationDispatchTerminal;
-import top.xfunny.mod.util.GetLiftDetails;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -250,38 +256,44 @@ public abstract class LiftDestinationDispatchTerminalBase extends BlockExtension
 
         public void registerFloor(BlockPos selfPos, World world, BlockPos pos, boolean isAdd) {
             this.selfPos = selfPos;
+            boolean delegatedToPairedButton = false;
             if (IBlock.getStatePropertySafe(world, getPos2(), SIDE) == EnumSide.RIGHT) {
-                final BlockEntity blockEntity = world.getBlockEntity(getPos2().offset(IBlock.getStatePropertySafe(world, getPos2(), FACING).rotateYCounterclockwise()));
-                if (blockEntity != null && blockEntity.data instanceof LiftButtonsBase.BlockEntityBase) {
-                    ((LiftButtonsBase.BlockEntityBase) blockEntity.data).registerFloor(selfPos, world, pos, isAdd);
+                final BlockEntity pairedEntity = world.getBlockEntity(
+                        getPos2().offset(IBlock.getStatePropertySafe(world, getPos2(), FACING).rotateYCounterclockwise()));
+                if (pairedEntity != null && pairedEntity.data instanceof LiftButtonsBase.BlockEntityBase) {
+                    ((LiftButtonsBase.BlockEntityBase) pairedEntity.data).registerFloor(selfPos, world, pos, isAdd);
+                    delegatedToPairedButton = true;
                 }
-            } else {
+            }
+
+            // Single-block destination terminals have no paired LiftButtons block.
+            // In that case keep the track link on this terminal instead of silently dropping it.
+            if (!delegatedToPairedButton) {
                 if (isAdd) {
-                    // 如果是添加操作，则将位置添加到跟踪列表中
                     trackPositions.add(pos);
                 } else {
-                    // 如果是非添加操作，则从跟踪列表中移除该位置
                     trackPositions.remove(pos);
                 }
             }
-            // 更新数据状态，标记数据为“脏”，表示需要保存或同步
             markDirty2();
         }
 
         @Override
         public void registerButton(World world, BlockPos blockPos, boolean isAdd) {
-
+            boolean delegatedToPairedButton = false;
             if (IBlock.getStatePropertySafe(world, getPos2(), SIDE) == EnumSide.RIGHT) {
-                final BlockEntity blockEntity = world.getBlockEntity(getPos2().offset(IBlock.getStatePropertySafe(world, getPos2(), FACING).rotateYCounterclockwise()));
-                if (blockEntity != null && blockEntity.data instanceof LiftButtonsBase.BlockEntityBase) {
-                    ((LiftButtonsBase.BlockEntityBase) blockEntity.data).registerButton(world, blockPos, isAdd);
+                final BlockEntity pairedEntity = world.getBlockEntity(
+                        getPos2().offset(IBlock.getStatePropertySafe(world, getPos2(), FACING).rotateYCounterclockwise()));
+                if (pairedEntity != null && pairedEntity.data instanceof LiftButtonsBase.BlockEntityBase) {
+                    ((LiftButtonsBase.BlockEntityBase) pairedEntity.data).registerButton(world, blockPos, isAdd);
+                    delegatedToPairedButton = true;
                 }
-            } else {
+            }
+
+            if (!delegatedToPairedButton) {
                 if (isAdd) {
-                    // 如果是添加操作，则将位置添加到跟踪列表中
                     liftButtonPositions.add(blockPos);
                 } else {
-                    // 如果是非添加操作，则从跟踪列表中移除该位置
                     liftButtonPositions.remove(blockPos);
                 }
             }
@@ -416,8 +428,7 @@ public abstract class LiftDestinationDispatchTerminalBase extends BlockExtension
             final LiftDirection neededDirection = determineDirection(
                     bestCandidate.callingFloorIndex, bestCandidate.destFloorIndex);
             this.liftDirection = neededDirection;
-            final String liftNumber = YteLiftConfigStore.getLiftNumber(bestCandidate.lift.getId());
-            liftIdentifier = liftNumber.isEmpty() ? "NULL" : liftNumber;
+            liftIdentifier = resolveLiftIdentifier(bestCandidate.lift.getId());
             // 计算电梯相对于终端的位置
             this.liftRelativePosition = computeLiftRelativePosition(world, pos, confirmTrackPosition);
 
@@ -446,6 +457,68 @@ public abstract class LiftDestinationDispatchTerminalBase extends BlockExtension
             }, 2, TimeUnit.SECONDS);
 
             return liftIdentifier;
+        }
+
+        /**
+         * Resolve the passenger-facing car label.
+         *
+         * A configured YTE lift number always wins. If no alias has been configured,
+         * assign deterministic A/B/C... labels to the distinct lifts linked to this
+         * terminal, ordered by their MTR lift IDs. This keeps PORT usable out of the box
+         * instead of showing the literal "NULL".
+         */
+        private String resolveLiftIdentifier(long selectedLiftId) {
+            final Map<Long, Lift> linkedLifts = new TreeMap<>();
+            final Map<Long, String> resolvedLabels = new HashMap<>();
+            final Set<String> reservedLabels = new HashSet<>();
+
+            // Use every car connected to this terminal, not only cars that serve
+            // the currently selected destination. Otherwise labels could change
+            // from A/B to A when a destination is served by just one car.
+            forEachTrackPosition(trackPosition -> MinecraftClientData.getInstance().lifts.forEach(lift -> {
+                if (lift.getFloorIndex(Init.blockPosToPosition(trackPosition)) >= 0) {
+                    linkedLifts.put(lift.getId(), lift);
+                }
+            }));
+
+            // Reserve all user-defined lift aliases before generating any automatic labels.
+            linkedLifts.forEach((liftId, lift) -> {
+                final String configured = YteLiftConfigStore.getLiftNumber(liftId);
+                if (configured != null && !configured.trim().isEmpty()) {
+                    final String normalized = configured.trim();
+                    resolvedLabels.put(liftId, normalized);
+                    reservedLabels.add(normalized.toUpperCase(Locale.ROOT));
+                }
+            });
+
+            int nextLetter = 0;
+            for (Long liftId : linkedLifts.keySet()) {
+                if (resolvedLabels.containsKey(liftId)) {
+                    continue;
+                }
+
+                String generated;
+                do {
+                    generated = toAlphabeticLiftLabel(nextLetter++);
+                } while (reservedLabels.contains(generated));
+
+                resolvedLabels.put(liftId, generated);
+                reservedLabels.add(generated.toUpperCase(Locale.ROOT));
+            }
+
+            return resolvedLabels.getOrDefault(selectedLiftId, "??");
+        }
+
+        /** 0 -> A, 25 -> Z, 26 -> AA. */
+        private String toAlphabeticLiftLabel(int index) {
+            final StringBuilder label = new StringBuilder();
+            int value = Math.max(0, index);
+            do {
+                final int remainder = value % 26;
+                label.insert(0, (char) ('A' + remainder));
+                value = value / 26 - 1;
+            } while (value >= 0);
+            return label.toString();
         }
 
         /**
@@ -576,13 +649,12 @@ public abstract class LiftDestinationDispatchTerminalBase extends BlockExtension
             final Position[] foundPosition = new Position[1];
 
             lift.iterateFloors(liftFloor -> {
-                String floorNumber = GetLiftDetails.getLiftDetails(
-                        world,
-                        lift,
-                        Init.positionToBlockPos(liftFloor.getPosition())
-                ).right().left();
+                final BlockPos floorPos = Init.positionToBlockPos(liftFloor.getPosition());
+                final BlockEntity floorEntity = world.getBlockEntity(floorPos);
+                final String floorNumber = floorEntity != null && floorEntity.data instanceof BlockLiftTrackFloor.BlockEntity
+                        ? ((BlockLiftTrackFloor.BlockEntity) floorEntity.data).getFloorNumber()
+                        : liftFloor.getNumber();
 
-                // 比较目标楼层和当前楼层号
                 if (destination.equals(floorNumber)) {
                     foundPosition[0] = liftFloor.getPosition();
                 }

@@ -11,6 +11,7 @@ public class BlockEntityTypes {
     public static final BlockEntityTypeRegistryObject<TestLiftButtonsWithoutScreen.BlockEntity> TEST_LIFT_BUTTONS_WITHOUT_SCREEN;
     public static final BlockEntityTypeRegistryObject<TestLiftPanel.BlockEntity> TEST_LIFT_PANEL;
     public static final BlockEntityTypeRegistryObject<TestLiftDestinationDispatchTerminal.BlockEntity> TEST_LIFT_DESTINATION_DISPATCH_TERMINAL;
+    public static final BlockEntityTypeRegistryObject<SchindlerPortTerminal.BlockEntity> SCHINDLER_PORT_TERMINAL;
     public static final BlockEntityTypeRegistryObject<CESScreen1Odd.BlockEntity> CES_SCREEN_1_ODD;
     public static final BlockEntityTypeRegistryObject<CESScreen1Even.BlockEntity> CES_SCREEN_1_EVEN;
     public static final BlockEntityTypeRegistryObject<DewhurstUS81Button1.BlockEntity> DEWHURST_US81_BUTTON_1;
@@ -366,6 +367,7 @@ public class BlockEntityTypes {
         TEST_LIFT_BUTTONS_WITHOUT_SCREEN = Init.REGISTRY.registerBlockEntityType(new Identifier(Init.MOD_ID, "lift_buttons_without_screen"), TestLiftButtonsWithoutScreen.BlockEntity::new, Blocks.TEST_LIFT_BUTTONS_WITHOUT_SCREEN::get);
         TEST_LIFT_PANEL = Init.REGISTRY.registerBlockEntityType(new Identifier(Init.MOD_ID, "lift_panel"), TestLiftPanel.BlockEntity::new, Blocks.TEST_LIFT_PANEL::get);
         TEST_LIFT_DESTINATION_DISPATCH_TERMINAL = Init.REGISTRY.registerBlockEntityType(new Identifier(Init.MOD_ID, "lift_destination_dispatch_terminal"), TestLiftDestinationDispatchTerminal.BlockEntity::new, Blocks.TEST_LIFT_DESTINATION_DISPATCH_TERMINAL::get);
+        SCHINDLER_PORT_TERMINAL = Init.REGISTRY.registerBlockEntityType(new Identifier(Init.MOD_ID, "schindler_port_terminal"), SchindlerPortTerminal.BlockEntity::new, Blocks.SCHINDLER_PORT_TERMINAL::get);
 
         CES_SCREEN_1_ODD = Init.REGISTRY.registerBlockEntityType(new Identifier(Init.MOD_ID, "ces_screen_1_odd"), CESScreen1Odd.BlockEntity::new, Blocks.CES_SCREEN_1_ODD::get);
         CES_SCREEN_1_EVEN = Init.REGISTRY.registerBlockEntityType(new Identifier(Init.MOD_ID, "ces_screen_1_even"), CESScreen1Even.BlockEntity::new, Blocks.CES_SCREEN_1_EVEN::get);

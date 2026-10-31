@@ -16,6 +16,7 @@ public class Blocks {
     public static final BlockRegistryObject TEST_LIFT_HALL_LANTERNS;
     public static final BlockRegistryObject TEST_LIFT_PANEL;
     public static final BlockRegistryObject TEST_LIFT_DESTINATION_DISPATCH_TERMINAL;
+    public static final BlockRegistryObject SCHINDLER_PORT_TERMINAL;
 
     public static final BlockRegistryObject CES_SCREEN_1_ODD = BlockFixtures.get("ces_screen_1_odd");
     public static final BlockRegistryObject CES_SCREEN_1_EVEN = BlockFixtures.get("ces_screen_1_even");
@@ -379,6 +380,7 @@ public class Blocks {
         TEST_LIFT_PANEL = Init.REGISTRY.registerBlockWithBlockItem(new Identifier(Init.MOD_ID, "test_lift_panel"), () -> new Block(new TestLiftPanel()));
         TEST_LIFT_BUTTONS_WITHOUT_SCREEN = Init.REGISTRY.registerBlockWithBlockItem(new Identifier(Init.MOD_ID, "test_lift_buttons_without_screen"), () -> new Block(new TestLiftButtonsWithoutScreen()));
         TEST_LIFT_DESTINATION_DISPATCH_TERMINAL = Init.REGISTRY.registerBlockWithBlockItem(new Identifier(Init.MOD_ID, "test_lift_destination_dispatch_terminal"), () -> new Block(new TestLiftDestinationDispatchTerminal()));
+        SCHINDLER_PORT_TERMINAL = Init.REGISTRY.registerBlockWithBlockItem(new Identifier(Init.MOD_ID, "schindler_port_terminal"), () -> new Block(new SchindlerPortTerminal()));
 
         PAT_P01_TICKET_BARRIER_ENTRANCE = Init.REGISTRY.registerBlockWithBlockItem(new Identifier(Init.MOD_ID, "pat_p01_ticket_barrier_entrance"), () -> new Block(new PATTicketBarrier(true)), CreativeModeTabs.YTE_RAILWAY_FACILITIES);
         PAT_P01_TICKET_BARRIER_EXIT = Init.REGISTRY.registerBlockWithBlockItem(new Identifier(Init.MOD_ID, "pat_p01_ticket_barrier_exit"), () -> new Block(new PATTicketBarrier(false)), CreativeModeTabs.YTE_RAILWAY_FACILITIES);
