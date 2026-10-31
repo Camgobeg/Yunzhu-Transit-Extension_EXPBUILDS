@@ -72,7 +72,7 @@ public final class PacketSyncLiftDestinationDispatchTerminal extends PacketHandl
                     (LiftDestinationDispatchTerminalBase.BlockEntityBase) blockEntity.data;
             terminalData.applyDisplayState(screenId, displayText);
             if (terminalData instanceof SchindlerPortTerminal.BlockEntity
-                    && (!portGroups.isEmpty() || selectedGroupFloor >= 0)) {
+                    && (!portGroups.isEmpty() || selectedGroupFloor != Long.MIN_VALUE)) {
                 ((SchindlerPortTerminal.BlockEntity) terminalData).applyGroupSync(portGroups, selectedGroupFloor);
             }
         }
@@ -92,7 +92,7 @@ public final class PacketSyncLiftDestinationDispatchTerminal extends PacketHandl
                     (LiftDestinationDispatchTerminalBase.BlockEntityBase) blockEntity.data;
             terminalData.applyDisplayState(screenId, displayText);
             if (terminalData instanceof SchindlerPortTerminal.BlockEntity
-                    && (!portGroups.isEmpty() || selectedGroupFloor >= 0)) {
+                    && (!portGroups.isEmpty() || selectedGroupFloor != Long.MIN_VALUE)) {
                 ((SchindlerPortTerminal.BlockEntity) terminalData).applyGroupSync(portGroups, selectedGroupFloor);
             }
             terminalData.markDirty2();
