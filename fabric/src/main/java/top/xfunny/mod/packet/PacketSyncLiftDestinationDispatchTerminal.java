@@ -39,7 +39,7 @@ public final class PacketSyncLiftDestinationDispatchTerminal extends PacketHandl
     }
 
     public PacketSyncLiftDestinationDispatchTerminal(BlockPos blockPos, String screenId, String displayText) {
-        this(blockPos, screenId, displayText, "", -1L);
+        this(blockPos, screenId, displayText, "", Long.MIN_VALUE);
     }
 
     public PacketSyncLiftDestinationDispatchTerminal(BlockPos blockPos, String screenId, String displayText,
